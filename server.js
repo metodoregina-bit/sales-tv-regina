@@ -16,7 +16,7 @@ const TAB_ASSISTENZA = process.env.TAB_ASSISTENZA || "Check-up Assistenza prenot
 const TAB_MANUALE = process.env.TAB_MANUALE || "Check-up Manuale prenotati";
 
 // Credenziali login (via env)
-const AUTH_USERS = (process.env.AUTH_USERS || "sofia@metodo:regina2026").split(",").map(p => {
+const AUTH_USERS = (process.env.AUTH_USERS || "info@sofiadigiovanni.com:MetodoRegina1ML").split(",").map(p => {
   const [u, pw] = p.split(":");
   return { user: (u || "").trim().toLowerCase(), pass: (pw || "").trim() };
 }).filter(x => x.user && x.pass);

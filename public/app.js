@@ -79,6 +79,24 @@ $('#loginForm').addEventListener('submit', async e => {
   return false;
 });
 
+// ─────────────── FORGOT PASSWORD MODAL ───────────────
+const forgotLink = document.getElementById('forgotLink');
+const forgotModal = document.getElementById('forgotModal');
+const forgotClose = document.getElementById('forgotClose');
+if (forgotLink && forgotModal) {
+  forgotLink.addEventListener('click', e => {
+    e.preventDefault();
+    forgotModal.hidden = false;
+  });
+  forgotClose.addEventListener('click', () => { forgotModal.hidden = true; });
+  forgotModal.addEventListener('click', e => {
+    if (e.target === forgotModal) forgotModal.hidden = true;
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !forgotModal.hidden) forgotModal.hidden = true;
+  });
+}
+
 // ─────────────── DATA ───────────────
 
 async function fetchData() {

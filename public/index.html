@@ -28,7 +28,23 @@
       </label>
       <div id="loginError" class="login-error"></div>
       <button class="login-btn" type="submit">Accedi</button>
+      <a href="#" id="forgotLink" class="login-forgot">Password dimenticata?</a>
     </form>
+  </div>
+
+  <!-- ═══════════ FORGOT PASSWORD MODAL ═══════════ -->
+  <div id="forgotModal" class="modal-wrap" hidden>
+    <div class="modal-card">
+      <button class="modal-close" id="forgotClose" aria-label="Chiudi">×</button>
+      <div class="modal-icon">🔑</div>
+      <h2 class="modal-title">Password dimenticata?</h2>
+      <p class="modal-text">
+        Per recuperare l'accesso a Sales TV Metodo Regina scrivi a<br>
+        <a href="mailto:info@sofiadigiovanni.com?subject=Recupero%20accesso%20Sales%20TV" class="modal-mail">info@sofiadigiovanni.com</a>
+      </p>
+      <p class="modal-hint">Riceverai le nuove credenziali via email entro poche ore.</p>
+      <a href="mailto:info@sofiadigiovanni.com?subject=Recupero%20accesso%20Sales%20TV" class="modal-btn">Invia richiesta</a>
+    </div>
   </div>
 
   <!-- ═══════════ APP ═══════════ -->
