@@ -133,6 +133,8 @@ function computePeriodRange() {
   }
 }
 function inRange(dateStr, from, to) {
+  // Modalita "sempre": accetta anche righe senza data (per non perdere record con date malformate)
+  if (from === '1970-01-01' && to === '9999-12-31') return true;
   if (!dateStr) return false;
   return dateStr >= from && dateStr <= to;
 }

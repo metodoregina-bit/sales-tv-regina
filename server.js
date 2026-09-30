@@ -110,7 +110,13 @@ function collect(res, resolve, reject) {
 
 function gvizDate(v) {
   if (v == null || v === "") return null;
-  const s = String(v);
+  // Se e' un oggetto Date JS
+  if (v instanceof Date) {
+    return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`;
+  }
+  const s = String(v).trim();
+  if (!s) return null;
+  // Formato gviz "Date(YYYY,M,D...)"
   const m = s.match(/Date\((\d+),(\d+),(\d+)/);
   if (m) {
     const y = +m[1];
@@ -118,14 +124,27 @@ function gvizDate(v) {
     const d = +m[3];
     return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   }
-  // Prova ISO
-  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
-  // Prova dd/mm/yyyy
-  const it = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  // ISO YYYY-MM-DD
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) return `${iso[1]}-${String(+iso[2]).padStart(2, "0")}-${String(+iso[3]).padStart(2, "0")}`;
+  // Italiano dd/mm/yyyy o dd-mm-yyyy o dd.mm.yyyy o dd\mm\yyyy
+  const it = s.match(/^(\d{1,2})[\/\-.\\](\d{1,2})[\/\-.\\](\d{2,4})/);
   if (it) {
     const y = it[3].length === 2 ? "20" + it[3] : it[3];
     return `${y}-${String(+it[2]).padStart(2, "0")}-${String(+it[1]).padStart(2, "0")}`;
+  }
+  // Numero seriale Excel/Sheets (giorni da 1899-12-30)
+  const n = Number(s);
+  if (!isNaN(n) && n > 30000 && n < 60000) {
+    const base = new Date(1899, 11, 30);
+    const dt = new Date(base.getTime() + n * 86400000);
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  }
+  // Ultimo tentativo: Date.parse
+  const parsed = Date.parse(s);
+  if (!isNaN(parsed)) {
+    const dt = new Date(parsed);
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
   }
   return null;
 }
@@ -238,6 +257,37 @@ app.get('/api/data', async (req, res) => {
           if (s.toUpperCase() === 'TRUE' || s.toUpperCase() === 'FALSE') return false;
           return true;
         }))].sort()
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ────────────────── DEBUG (per troubleshoot) ──────────────────
+
+app.get('/api/debug', async (req, res) => {
+  if (!isAuthed(req)) return res.status(401).json({ ok: false });
+  try {
+    const [rV, rQC] = await Promise.all([
+      fetchGviz(TAB_VENDITE).catch(e => ({ err: e.message })),
+      fetchGviz(TAB_QC).catch(e => ({ err: e.message }))
+    ]);
+    // Prendi le prime 3 righe raw per ispezione
+    const vRows = rV && rV.table && rV.table.rows ? rV.table.rows.slice(0, 3) : [];
+    const qcRows = rQC && rQC.table && rQC.table.rows ? rQC.table.rows.slice(0, 3) : [];
+    const vendite = rV ? parseVendite(rV) : [];
+    const checkup = rQC ? parseCheckup(rQC, 'Queen Challenge') : [];
+    res.json({
+      ok: true,
+      sheetId: SHEET_ID,
+      tabs: { vendite: TAB_VENDITE, qc: TAB_QC },
+      raw: { venditeRows: vRows, qcRows: qcRows },
+      parsed: {
+        venditeCount: vendite.length,
+        venditeFirst3: vendite.slice(0, 3),
+        checkupCount: checkup.length,
+        checkupFirst3: checkup.slice(0, 3)
       }
     });
   } catch (e) {
