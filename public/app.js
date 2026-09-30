@@ -430,6 +430,19 @@ function bindEvents() {
 
 // ─────────────── BOOTSTRAP ───────────────
 
+function showApp() {
+  $('#login').style.display = 'none';
+  $('#login').hidden = true;
+  $('#app').style.display = '';
+  $('#app').hidden = false;
+}
+function showLogin() {
+  $('#login').style.display = '';
+  $('#login').hidden = false;
+  $('#app').style.display = 'none';
+  $('#app').hidden = true;
+}
+
 // Bind login form SUBITO (fuori da async) per garantire che preventDefault funzioni
 $('#loginForm').addEventListener('submit', async e => {
   e.preventDefault();
@@ -438,8 +451,7 @@ $('#loginForm').addEventListener('submit', async e => {
   try {
     const u = await doLogin($('#loginEmail').value, $('#loginPass').value);
     state.currentUser = u;
-    $('#login').hidden = true;
-    $('#app').hidden = false;
+    showApp();
     bindEvents();
     await fetchData();
   } catch (err) {
@@ -456,13 +468,11 @@ async function boot() {
   const user = await checkAuth();
   if (user) {
     state.currentUser = user;
-    $('#login').hidden = true;
-    $('#app').hidden = false;
+    showApp();
     bindEvents();
     await fetchData();
   } else {
-    $('#login').hidden = false;
-    $('#app').hidden = true;
+    showLogin();
   }
 }
 
