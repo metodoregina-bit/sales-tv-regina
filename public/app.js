@@ -141,15 +141,33 @@ function inRange(dateStr, from, to) {
 
 // ─────────────── AGGREGATION ───────────────
 
+// Deriva vendite dai check-up con venduto=true (fonte di verita)
+function venditeDaCheckup(coach) {
+  const cu = state.data.checkup.filter(c => c.venduto && c.importo > 0);
+  return cu
+    .filter(c => !coach || coach === '__ALL__' || c.coach === coach)
+    .map(c => ({
+      // Data vendita = DATA CHECK-UP (col X), fallback a dataProspect
+      dataVendita: c.dataCheckup || c.dataProspect,
+      dataIncasso: c.dataCheckup || c.dataProspect, // stessa data (semplice)
+      dataProspect: c.dataProspect,
+      nome: c.nome, cognome: c.cognome,
+      email: c.email, telefono: c.telefono,
+      coach: c.coach || 'Sofia',
+      prodotto: c.prodottoVenduto,
+      importo: c.importo,
+      funnel: c.funnel
+    }));
+}
+
 function aggregateFor(coach) {
   if (!state.data) return null;
   const [from, to] = computePeriodRange();
   const [prevFrom, prevTo] = shiftRange(from, to, -1);
 
-  let vendite = state.data.vendite;
+  const vendite = venditeDaCheckup(coach);
   let checkup = state.data.checkup;
   if (coach && coach !== '__ALL__') {
-    vendite = vendite.filter(v => v.coach === coach);
     checkup = checkup.filter(c => c.coach === coach);
   }
 
@@ -163,7 +181,6 @@ function aggregateFor(coach) {
   const inc = incPeriod.reduce((a, v) => a + v.importo, 0);
   const daLeadPrecedenti = vendite.filter(v => inRange(v.dataProspect, prevFrom, prevTo) && inRange(v.dataIncasso, from, to)).reduce((a, v) => a + v.importo, 0);
 
-  // Confronto periodo precedente
   const vendPrev = vendite.filter(v => inRange(v.dataVendita, prevFrom, prevTo));
   const incPrev = vendite.filter(v => inRange(v.dataIncasso, prevFrom, prevTo));
   const fattPrev = vendPrev.reduce((a, v) => a + v.importo, 0);
@@ -199,8 +216,13 @@ function shiftRange(from, to, offsetMonths) {
 function activeCoaches() {
   if (!state.data) return [];
   const set = new Set();
-  state.data.vendite.forEach(v => { if (v.coach) set.add(v.coach); });
-  state.data.checkup.forEach(c => { if (c.coach) set.add(c.coach); });
+  state.data.checkup.forEach(c => {
+    const s = String(c.coach || '').trim();
+    if (!s) return;
+    if (/^[0-9]+$/.test(s)) return;
+    if (s.toUpperCase() === 'TRUE' || s.toUpperCase() === 'FALSE') return;
+    set.add(s);
+  });
   return [...set].sort();
 }
 
@@ -470,7 +492,8 @@ function renderCanali() {
   const funnels = state.data.config.funnels;
   return funnels.map(fn => {
     const [from, to] = computePeriodRange();
-    const vs = state.data.vendite.filter(v => v.funnel === fn && inRange(v.dataVendita, from, to));
+    const allVend = venditeDaCheckup(null);
+    const vs = allVend.filter(v => v.funnel === fn && inRange(v.dataVendita, from, to));
     const cs = state.data.checkup.filter(c => c.funnel === fn && inRange(c.dataProspect, from, to));
     const csFatti = cs.filter(c => String(c.checkupStato).toUpperCase() === 'FATTO' && inRange(c.dataCheckup, from, to));
     const fatt = vs.reduce((a, v) => a + v.importo, 0);
@@ -502,7 +525,8 @@ function renderCanali() {
 
 function renderProdotti() {
   const [from, to] = computePeriodRange();
-  const vs = state.data.vendite.filter(v => inRange(v.dataVendita, from, to));
+  const allVend = venditeDaCheckup(null);
+  const vs = allVend.filter(v => inRange(v.dataVendita, from, to));
   const byProd = {};
   vs.forEach(v => {
     const p = v.prodotto || '—';
@@ -536,8 +560,8 @@ function renderCoachDetail(coach) {
   const monthName = new Date(agg.to).toLocaleDateString('it-IT', { month: 'long' });
 
   // Vendite recenti coach
-  const vendite = state.data.vendite
-    .filter(v => v.coach === coach && inRange(v.dataVendita, agg.from, agg.to))
+  const vendite = venditeDaCheckup(coach)
+    .filter(v => inRange(v.dataVendita, agg.from, agg.to))
     .sort((a, b) => (b.dataVendita || '').localeCompare(a.dataVendita || ''));
 
   return `
