@@ -430,6 +430,24 @@ function bindEvents() {
 
 // ─────────────── BOOTSTRAP ───────────────
 
+// Bind login form SUBITO (fuori da async) per garantire che preventDefault funzioni
+$('#loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  e.stopPropagation();
+  $('#loginError').textContent = '';
+  try {
+    const u = await doLogin($('#loginEmail').value, $('#loginPass').value);
+    state.currentUser = u;
+    $('#login').hidden = true;
+    $('#app').hidden = false;
+    bindEvents();
+    await fetchData();
+  } catch (err) {
+    $('#loginError').textContent = err.message;
+  }
+  return false;
+});
+
 async function boot() {
   // Theme
   const savedTheme = localStorage.getItem('stv_theme') || 'light';
@@ -445,20 +463,6 @@ async function boot() {
   } else {
     $('#login').hidden = false;
     $('#app').hidden = true;
-    $('#loginForm').addEventListener('submit', async e => {
-      e.preventDefault();
-      $('#loginError').textContent = '';
-      try {
-        const u = await doLogin($('#loginEmail').value, $('#loginPass').value);
-        state.currentUser = u;
-        $('#login').hidden = true;
-        $('#app').hidden = false;
-        bindEvents();
-        await fetchData();
-      } catch (err) {
-        $('#loginError').textContent = err.message;
-      }
-    });
   }
 }
 
