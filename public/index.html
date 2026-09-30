@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sales TV — Metodo Regina</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+  <!-- ═══════════ LOGIN ═══════════ -->
+  <div id="login" class="login-wrap">
+    <form id="loginForm" class="login-card" autocomplete="on">
+      <div class="login-brand">
+        <div class="login-icon">👑</div>
+        <div>
+          <div class="login-title">Sales TV</div>
+          <div class="login-sub">Il gestionale del team vendita di Metodo Regina</div>
+        </div>
+      </div>
+      <label class="login-field">
+        <span>Email</span>
+        <input type="email" name="email" id="loginEmail" required autofocus />
+      </label>
+      <label class="login-field">
+        <span>Password</span>
+        <input type="password" name="password" id="loginPass" required />
+      </label>
+      <div id="loginError" class="login-error"></div>
+      <button class="login-btn" type="submit">Accedi</button>
+    </form>
+  </div>
+
+  <!-- ═══════════ APP ═══════════ -->
+  <div id="app" class="app" hidden>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">👑</div>
+        <div class="brand-text">
+          <div class="brand-title">Sales TV</div>
+          <div class="brand-sub">Metodo Regina</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="#" class="nav-item active" data-view="dashboard"><span class="nav-icon">📊</span><span>Dashboard</span></a>
+        <a href="#" class="nav-item" data-view="coach"><span class="nav-icon">🏆</span><span>Coach</span></a>
+        <a href="#" class="nav-item" data-view="funnel"><span class="nav-icon">🎯</span><span>Funnel</span></a>
+        <a href="#" class="nav-item" data-view="vendite"><span class="nav-icon">💰</span><span>Vendite</span></a>
+        <a href="#" class="nav-item" data-view="checkup"><span class="nav-icon">📅</span><span>Check-up</span></a>
+        <a href="#" class="nav-item" data-view="impostazioni"><span class="nav-icon">⚙️</span><span>Impostazioni</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <button id="themeToggle" class="theme-toggle"><span>🌙</span><span>Modalità scura</span></button>
+        <button id="logoutBtn" class="theme-toggle" style="margin-top:8px"><span>🚪</span><span>Logout</span></button>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+
+      <!-- TOP BAR -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 class="page-title" id="pageTitle">Dashboard</h1>
+          <p class="page-sub" id="pageSub">Panoramica del team vendita</p>
+        </div>
+        <div class="topbar-right">
+          <div class="period-tabs" id="periodTabs">
+            <button class="period-tab" data-period="today">Oggi</button>
+            <button class="period-tab" data-period="7d">Ultimi 7 giorni</button>
+            <button class="period-tab" data-period="30d">Ultimi 30 giorni</button>
+            <button class="period-tab active" data-period="thisMonth">Questo mese</button>
+            <button class="period-tab" data-period="lastMonth">Mese scorso</button>
+            <button class="period-tab" data-period="ytd">Da inizio anno</button>
+            <button class="period-tab" data-period="all">Da sempre</button>
+          </div>
+          <div class="topbar-actions">
+            <div class="date-range-controls">
+              <input type="date" id="dateFrom" class="date-input" />
+              <span class="date-sep">→</span>
+              <input type="date" id="dateTo" class="date-input" />
+            </div>
+            <button id="refreshBtn" class="refresh-btn" title="Aggiorna dai Google Sheets">Aggiorna</button>
+          </div>
+        </div>
+      </header>
+
+      <div id="toast" class="toast"></div>
+
+      <!-- CONTENT -->
+      <div class="content">
+
+        <!-- DASHBOARD -->
+        <section class="view active" data-view="dashboard">
+          <h2 class="section-title section-title--generali">GENERALI</h2>
+          <div class="kpi-grid" id="kpiGenerali"></div>
+          <h2 class="section-title section-title--academy">FATTURATO</h2>
+          <div class="kpi-grid" id="kpiFatturato"></div>
+          <h2 class="section-title section-title--queen">CONVERSIONI</h2>
+          <div class="kpi-grid" id="kpiConversioni"></div>
+        </section>
+
+        <!-- COACH -->
+        <section class="view" data-view="coach">
+          <h2 class="section-title section-title--generali">🏆 CLASSIFICA COACH</h2>
+          <div class="panel">
+            <div class="table-wrap">
+              <table class="tbl" id="coachTable"></table>
+            </div>
+          </div>
+        </section>
+
+        <!-- FUNNEL -->
+        <section class="view" data-view="funnel">
+          <h2 class="section-title section-title--generali">🎯 PERFORMANCE PER FUNNEL</h2>
+          <div class="kpi-grid" id="funnelCards"></div>
+          <h2 class="section-title section-title--academy">TABELLA DETTAGLIO</h2>
+          <div class="panel">
+            <div class="table-wrap">
+              <table class="tbl" id="funnelTable"></table>
+            </div>
+          </div>
+        </section>
+
+        <!-- VENDITE -->
+        <section class="view" data-view="vendite">
+          <h2 class="section-title section-title--generali">💰 VENDITE RECENTI</h2>
+          <div class="panel">
+            <div class="table-wrap">
+              <table class="tbl" id="venditeTable"></table>
+            </div>
+          </div>
+        </section>
+
+        <!-- CHECK-UP -->
+        <section class="view" data-view="checkup">
+          <div class="tabs-sub" id="checkupTabs">
+            <button class="sub-tab active" data-sub="all">Tutti</button>
+            <button class="sub-tab" data-sub="Queen Challenge">Queen Challenge</button>
+            <button class="sub-tab" data-sub="Quiz">Quiz</button>
+            <button class="sub-tab" data-sub="Sales">Sales</button>
+            <button class="sub-tab" data-sub="Assistenza">Assistenza</button>
+            <button class="sub-tab" data-sub="Manuale">Manuale</button>
+          </div>
+          <div class="panel">
+            <div class="table-wrap">
+              <table class="tbl" id="checkupTable"></table>
+            </div>
+          </div>
+        </section>
+
+        <!-- IMPOSTAZIONI -->
+        <section class="view" data-view="impostazioni">
+          <h2 class="section-title section-title--generali">⚙️ IMPOSTAZIONI</h2>
+          <div class="panel">
+            <div class="panel-title">Google Sheets sorgente</div>
+            <div class="setting-row">
+              <div class="setting-label">Sheet ID</div>
+              <div class="setting-value" id="settingSheetId"></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">Ultimo aggiornamento</div>
+              <div class="setting-value" id="settingUpdated"></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">Link diretto foglio</div>
+              <div class="setting-value"><a id="settingSheetLink" target="_blank" rel="noopener">Apri su Google Sheets</a></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">Utente loggato</div>
+              <div class="setting-value" id="settingUser"></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Tab foglio letti</div>
+            <ul class="setting-list">
+              <li><code>TAB_VENDITE</code> — Vendite Regina</li>
+              <li><code>TAB_QC</code> — Check-up QC prenotati</li>
+              <li><code>TAB_QUIZ</code> — Check-up Quiz prenotati</li>
+              <li><code>TAB_SALES</code> — Check-up Sales prenotati</li>
+              <li><code>TAB_ASSISTENZA</code> — Check-up Assistenza prenotati</li>
+              <li><code>TAB_MANUALE</code> — Check-up Manuale prenotati</li>
+            </ul>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
