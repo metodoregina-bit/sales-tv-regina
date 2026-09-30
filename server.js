@@ -231,7 +231,7 @@ app.get('/api/data', async (req, res) => {
         coaches: [...new Set([
           ...vendite.map(v => v.coach),
           ...checkup.map(c => c.coach)
-        ].filter(Boolean))].sort()
+        ].filter(c => c && String(c).trim() && String(c).trim() !== '0' && String(c).trim().length > 1))].sort()
       }
     });
   } catch (e) {
