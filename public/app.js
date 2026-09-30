@@ -449,30 +449,71 @@ function renderHome() {
 // ─────────────── PERCORSO (funnel visualization) ───────────────
 function renderPercorso(agg) {
   const steps = [
-    { label: 'Prospect', value: agg.prospect, color: '#3b82f6', pctOf: null },
-    { label: 'Chiamati', value: agg.chiamati.length, color: '#a855f7', pctOf: agg.prospect },
-    { label: 'Check-up', value: agg.checkup, color: '#f97316', pctOf: agg.chiamati.length },
-    { label: 'Vendite', value: agg.vendite, color: '#10b981', pctOf: agg.checkup }
+    { label: 'Contatti', value: agg.prospect,            color: '#facc15', pctOf: null },
+    { label: 'Chiamati', value: agg.chiamati.length,     color: '#eab308', pctOf: agg.prospect },
+    { label: 'Check-up', value: agg.checkup,             color: '#6366f1', pctOf: agg.chiamati.length },
+    { label: 'Vendite',  value: agg.vendite,             color: '#10b981', pctOf: agg.checkup }
   ];
   const max = Math.max(1, agg.prospect);
+  const MIN_H = 60, MAX_H = 170;
+  const chiusuraPct = agg.checkup ? Math.round((agg.vendite / agg.checkup) * 100) : 0;
+  const daChiamare = agg.cuProspect.filter(c => !c.setting).length;
+
+  const nonChiusiTot = state.data.checkup.filter(c => String(c.checkupStato).toUpperCase() === 'FATTO' && !c.venduto && inRange(c.dataCheckup, agg.from, agg.to)).length;
+  const motivi = [
+    { label: 'In sospeso',       count: 0, color: '#f472b6' },
+    { label: 'Non rispondono',   count: 0, color: '#fb923c' },
+    { label: 'Prezzo',           count: 0, color: '#f87171' },
+    { label: 'Non è il momento', count: 0, color: '#c084fc' }
+  ];
   return `
     <div class="prodotti-card">
-      <div style="display:flex;align-items:flex-end;gap:16px;padding:20px 0">
-        ${steps.map(s => {
-          const w = (s.value / max) * 100;
-          const pct = s.pctOf ? Math.round((s.value / s.pctOf) * 100) : null;
-          return `
-            <div style="flex:1;text-align:center">
-              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:8px">${s.label}</div>
-              <div style="font-size:32px;font-weight:800;color:${s.color};line-height:1">${s.value}</div>
-              ${pct !== null ? `<div style="font-size:12px;color:var(--text-muted);margin-top:6px">${pct}% del passo prima</div>` : `<div style="font-size:12px;color:var(--text-muted);margin-top:6px">Totale</div>`}
-              <div style="height:8px;background:#eef2f7;border-radius:999px;margin-top:12px;overflow:hidden">
-                <div style="height:100%;background:${s.color};width:${w}%;border-radius:999px"></div>
-              </div>
+      <div style="display:grid;grid-template-columns:1fr 300px;gap:32px;align-items:flex-start">
+        <div>
+          <div style="display:flex;align-items:flex-end;gap:0;padding:12px 0">
+            ${steps.map((s, i) => {
+              const h = MIN_H + ((s.value / max) * (MAX_H - MIN_H));
+              const pct = s.pctOf ? Math.round((s.value / s.pctOf) * 100) : null;
+              return `
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center">
+                  <div style="height:${MAX_H}px;display:flex;align-items:flex-end;width:100%;justify-content:center;position:relative">
+                    <div style="width:78%;height:${h}px;background:linear-gradient(180deg,${s.color},${s.color}dd);border-radius:44px;box-shadow:0 8px 24px ${s.color}55, inset 0 -8px 20px ${s.color}88"></div>
+                  </div>
+                  <div style="font-size:32px;font-weight:800;color:${s.color};line-height:1;margin-top:14px">${s.value}</div>
+                  <div style="font-size:12px;color:var(--text-muted);margin-top:4px">${s.label}</div>
+                </div>
+                ${i < steps.length - 1 ? `
+                  <div style="display:flex;flex-direction:column;align-items:center;padding:0 4px;margin-bottom:70px">
+                    <div style="background:#f1f5f9;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:600;color:var(--text-muted)">${steps[i+1].pctOf ? Math.round((steps[i+1].value / steps[i+1].pctOf)*100) : 0}%</div>
+                    <div style="color:#cbd5e1;font-size:16px;margin-top:4px">→</div>
+                  </div>
+                ` : ''}
+              `;
+            }).join('')}
+          </div>
+
+          <!-- Non chiusi barra -->
+          <div style="margin-top:20px">
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Non chiusi</div>
+            <div style="display:flex;height:10px;border-radius:999px;overflow:hidden;background:#eef2f7;box-shadow:inset 0 1px 3px rgba(0,0,0,0.05)">
+              ${motivi.map(m => `<div style="flex:${Math.max(m.count, 1)};background:${m.color};box-shadow:0 0 12px ${m.color}88"></div>`).join('')}
             </div>
-            ${s !== steps[steps.length - 1] ? `<div style="color:var(--text-muted);font-size:24px;padding:0 4px;align-self:center">→</div>` : ''}
-          `;
-        }).join('')}
+            <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--text-muted);margin-top:10px">
+              ${motivi.map(m => `<span><span style="display:inline-block;width:6px;height:6px;background:${m.color};border-radius:50%;margin-right:5px;vertical-align:middle"></span>${m.label} <b style="color:var(--text)">${m.count}</b></span>`).join('')}
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="background:#fafbfd;border:1px solid var(--border);border-radius:14px;padding:16px 18px">
+            <div style="font-size:11px;font-weight:700;color:#7c3aed;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px"><span style="display:inline-block;width:6px;height:6px;background:#7c3aed;border-radius:50%;margin-right:6px;vertical-align:middle"></span>Chiusura</div>
+            <div style="font-size:34px;font-weight:800;color:#7c3aed;line-height:1">${chiusuraPct}%</div>
+          </div>
+          <div style="background:#fafbfd;border:1px solid var(--border);border-radius:14px;padding:16px 18px">
+            <div style="font-size:11px;font-weight:700;color:#eab308;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px"><span style="display:inline-block;width:6px;height:6px;background:#eab308;border-radius:50%;margin-right:6px;vertical-align:middle"></span>Da chiamare</div>
+            <div style="font-size:34px;font-weight:800;color:#eab308;line-height:1">${daChiamare}</div>
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -509,18 +550,35 @@ function renderAndamento(coaches) {
   const CW = W - PAD_L - PAD_R;
   const CH = H - PAD_T - PAD_B;
   const stepX = CW / (months.length - 1);
-  const pathFor = vals => vals.map((v, i) => {
-    const x = PAD_L + i * stepX;
-    const y = PAD_T + CH - (v / maxV) * CH;
-    return (i === 0 ? 'M' : 'L') + x + ',' + y;
-  }).join(' ');
-  const areaFor = vals => {
+  // Smooth bezier (cardinal spline con tensione)
+  function pointsFor(vals) {
+    return vals.map((v, i) => ({ x: PAD_L + i * stepX, y: PAD_T + CH - (v / maxV) * CH }));
+  }
+  function pathFor(vals) {
+    const pts = pointsFor(vals);
+    if (pts.length < 2) return '';
+    const tension = 0.35;
+    let d = `M${pts[0].x},${pts[0].y}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] || p2;
+      const cp1x = p1.x + (p2.x - p0.x) * tension;
+      const cp1y = p1.y + (p2.y - p0.y) * tension;
+      const cp2x = p2.x - (p3.x - p1.x) * tension;
+      const cp2y = p2.y - (p3.y - p1.y) * tension;
+      d += ` C${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
+    }
+    return d;
+  }
+  function areaFor(vals) {
     const line = pathFor(vals);
     const x0 = PAD_L;
     const xN = PAD_L + (vals.length - 1) * stepX;
     const yBase = PAD_T + CH;
     return `${line} L${xN},${yBase} L${x0},${yBase} Z`;
-  };
+  }
   return `
     <div class="prodotti-card">
       <div style="display:flex;justify-content:flex-end;gap:16px;margin-bottom:16px">
@@ -547,12 +605,7 @@ function renderAndamento(coaches) {
         }).join('')}
         ${series.map((s, i) => `
           <path d="${areaFor(s.values)}" fill="url(#grad-${i})"/>
-          <path d="${pathFor(s.values)}" fill="none" stroke="${s.color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-          ${s.values.map((v, j) => {
-            const x = PAD_L + j * stepX;
-            const y = PAD_T + CH - (v / maxV) * CH;
-            return `<circle cx="${x}" cy="${y}" r="4" fill="white" stroke="${s.color}" stroke-width="2.5"/>`;
-          }).join('')}
+          <path d="${pathFor(s.values)}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
         `).join('')}
       </svg>
     </div>
@@ -637,22 +690,39 @@ function renderVenditoreCard(coach) {
             <div class="v">${fmtEur(agg.inc)}</div>
           </div>
           <div class="mini-metric purple">
-            <div class="l"><span class="dot" style="background:#a855f7"></span>Mese prec.</div>
-            <div class="v">${fmtEur(agg.daLeadPrecedenti)}</div>
+            <div class="l"><span class="dot" style="background:#a855f7"></span>Ticket medio</div>
+            <div class="v">${fmtEur(agg.ticketMedio)}</div>
           </div>
-          <div class="mini-metric green">
-            <div class="l"><span class="dot" style="background:#10b981"></span>Chiusura</div>
-            <div class="v">${fmtPctInt(chiusura)}</div>
+          <div class="mini-metric" style="border-left:3px solid #7c3aed">
+            <div class="l"><span class="dot" style="background:#7c3aed"></span>Chiusura ${chiusura >= 50 ? '▲' : '▼'}</div>
+            <div class="v" style="color:#7c3aed">${fmtPctInt(chiusura)}</div>
           </div>
-          <div class="mini-metric">
-            <div class="l"><span class="dot" style="background:#eab308"></span>ROP</div>
-            <div class="v">${fmtEur(agg.rop)}</div>
+          <div class="mini-metric" style="border-left:3px solid #06b6d4">
+            <div class="l"><span class="dot" style="background:#06b6d4"></span>Lead mesi prima</div>
+            <div class="v" style="color:#06b6d4">${fmtEur(agg.daLeadPrecedenti)}</div>
           </div>
         </div>
       </div>
 
       <div class="venditore-mancano">
         Per l'obiettivo mancano <b>${fmtEur(mancano)}</b>, circa <b>${stimaVendite} vendite</b>
+      </div>
+
+      <!-- ROP dark card mini -->
+      <div style="background:radial-gradient(ellipse at top right,#1e293b 0%,#0f172a 60%);border-radius:14px;padding:18px 22px;color:white;box-shadow:0 8px 20px rgba(15,23,42,0.15);position:relative;overflow:hidden;">
+        <div style="font-size:10px;letter-spacing:1.5px;color:rgba(255,255,255,0.55);text-transform:uppercase;font-weight:600;margin-bottom:4px">ROP · Resa per contatto</div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="font-size:32px;font-weight:800;color:#facc15">${fmtEur(agg.rop)}</div>
+          ${trendChip(agg.rop && agg.ropTarget ? ((agg.rop - agg.ropTarget) / agg.ropTarget) * 100 : 0)}
+          <div style="flex:1;position:relative">
+            <div style="height:7px;background:rgba(255,255,255,0.08);border-radius:999px;overflow:visible;position:relative">
+              <div style="height:100%;width:${Math.min(100,(agg.rop/600)*100)}%;background:linear-gradient(90deg,#fde047 0%,#facc15 50%,#eab308 100%);border-radius:999px;box-shadow:0 0 12px rgba(250,204,21,0.6),0 0 4px rgba(250,204,21,0.9)"></div>
+              <div style="position:absolute;top:-3px;bottom:-3px;left:${(agg.ropTarget/600)*100}%;width:2px;background:white;z-index:2"></div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.6);white-space:nowrap">ROC ${fmtEur(agg.roc)}</div>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:6px">per contatto · ${agg.prospect} contatti · obiettivo ${fmtEur(agg.ropTarget)}</div>
       </div>
 
       ${renderNonChiusiCard(coach)}
