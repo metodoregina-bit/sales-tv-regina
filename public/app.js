@@ -480,7 +480,6 @@ function renderPercorso(agg) {
 
 // ─────────────── ANDAMENTO (grafico mensile) ───────────────
 function renderAndamento(coaches) {
-  // Prendo tutti i check-up con venduto=true degli ultimi 12 mesi
   const now = new Date();
   const months = [];
   for (let i = 11; i >= 0; i--) {
@@ -506,7 +505,7 @@ function renderAndamento(coaches) {
     };
   });
   const maxV = Math.max(1, ...series.flatMap(s => s.values));
-  const W = 800, H = 220, PAD_L = 50, PAD_R = 20, PAD_T = 20, PAD_B = 40;
+  const W = 900, H = 260, PAD_L = 60, PAD_R = 20, PAD_T = 20, PAD_B = 44;
   const CW = W - PAD_L - PAD_R;
   const CH = H - PAD_T - PAD_B;
   const stepX = CW / (months.length - 1);
@@ -515,28 +514,44 @@ function renderAndamento(coaches) {
     const y = PAD_T + CH - (v / maxV) * CH;
     return (i === 0 ? 'M' : 'L') + x + ',' + y;
   }).join(' ');
+  const areaFor = vals => {
+    const line = pathFor(vals);
+    const x0 = PAD_L;
+    const xN = PAD_L + (vals.length - 1) * stepX;
+    const yBase = PAD_T + CH;
+    return `${line} L${xN},${yBase} L${x0},${yBase} Z`;
+  };
   return `
     <div class="prodotti-card">
-      <div style="display:flex;justify-content:flex-end;gap:16px;margin-bottom:12px">
-        ${series.map(s => `<span style="font-size:12px;color:var(--text-muted)"><span style="display:inline-block;width:12px;height:2px;background:${s.color};vertical-align:middle;margin-right:6px"></span>${s.coach}</span>`).join('')}
+      <div style="display:flex;justify-content:flex-end;gap:16px;margin-bottom:16px">
+        ${series.map(s => `<span style="font-size:12px;color:var(--text-muted);display:inline-flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:3px;background:${s.color};border-radius:2px"></span>${s.coach}</span>`).join('')}
       </div>
       <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
+        <defs>
+          ${series.map((s, i) => `
+            <linearGradient id="grad-${i}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${s.color}" stop-opacity="0.25"/>
+              <stop offset="100%" stop-color="${s.color}" stop-opacity="0"/>
+            </linearGradient>
+          `).join('')}
+        </defs>
         ${[0,0.25,0.5,0.75,1].map(f => {
           const y = PAD_T + CH * (1 - f);
           const val = Math.round(maxV * f);
           return `<line x1="${PAD_L}" y1="${y}" x2="${W-PAD_R}" y2="${y}" stroke="#eef2f7" stroke-width="1"/>
-                  <text x="${PAD_L - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="#94a3b8">${new Intl.NumberFormat('it-IT').format(val)}</text>`;
+                  <text x="${PAD_L - 10}" y="${y + 4}" text-anchor="end" font-size="11" fill="#94a3b8">€${new Intl.NumberFormat('it-IT').format(val)}</text>`;
         }).join('')}
         ${months.map((m, i) => {
           const x = PAD_L + i * stepX;
-          return `<text x="${x}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#94a3b8">${m.label}</text>`;
+          return `<text x="${x}" y="${H - 10}" text-anchor="middle" font-size="11" fill="#94a3b8">${m.label}</text>`;
         }).join('')}
-        ${series.map(s => `
-          <path d="${pathFor(s.values)}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-          ${s.values.map((v, i) => {
-            const x = PAD_L + i * stepX;
+        ${series.map((s, i) => `
+          <path d="${areaFor(s.values)}" fill="url(#grad-${i})"/>
+          <path d="${pathFor(s.values)}" fill="none" stroke="${s.color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          ${s.values.map((v, j) => {
+            const x = PAD_L + j * stepX;
             const y = PAD_T + CH - (v / maxV) * CH;
-            return `<circle cx="${x}" cy="${y}" r="3" fill="${s.color}"/>`;
+            return `<circle cx="${x}" cy="${y}" r="4" fill="white" stroke="${s.color}" stroke-width="2.5"/>`;
           }).join('')}
         `).join('')}
       </svg>
@@ -652,26 +667,31 @@ function renderVenditoreCard(coach) {
 }
 
 // Non chiusi = check-up con VENDUTO=false MA il check-up è stato FATTO
-// Motivi (Giardino/Bocciati/Prezzo/Genitori) sono placeholder finché non aggiungiamo le colonne
+// Motivi (In sospeso / Non rispondono / Prezzo / Non è il momento) — placeholder finché non colleghiamo colonne foglio
 function renderNonChiusiCard(coach) {
   const cu = state.data.checkup.filter(c => (!coach || c.coach === coach) && String(c.checkupStato).toUpperCase() === 'FATTO' && !c.venduto);
   const total = cu.length;
-  // Placeholder distribuzione motivi (da collegare quando avrai colonne nel foglio)
   const motivi = [
-    { label: 'Giardino',       count: 0 },
-    { label: 'Non rispondono', count: 0 },
-    { label: 'Bocciati',       count: 0 },
-    { label: 'Prezzo',         count: 0 },
-    { label: 'Genitori',       count: 0 }
+    { label: 'In sospeso',       count: 0, color: '#f472b6' },
+    { label: 'Non rispondono',   count: 0, color: '#fb923c' },
+    { label: 'Prezzo',           count: 0, color: '#f87171' },
+    { label: 'Non è il momento', count: 0, color: '#c084fc' }
   ];
+  // Segmenti per la barra (proporzione ai count; se tutti 0 barra grigia uniforme)
+  const sum = motivi.reduce((a, m) => a + m.count, 0);
+  const barSegs = sum > 0
+    ? motivi.map(m => `<div style="flex:${m.count};background:${m.color};box-shadow:0 0 8px ${m.color}55"></div>`).join('')
+    : motivi.map(m => `<div style="flex:1;background:${m.color}55"></div>`).join('');
   return `
     <div>
       <div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">
         Non chiusi · ${total}
       </div>
-      <div style="height:10px;background:linear-gradient(90deg,#f87171,#ef4444,#dc2626);border-radius:999px;margin-bottom:10px"></div>
+      <div style="display:flex;height:10px;border-radius:999px;overflow:hidden;margin-bottom:10px;background:#eef2f7">
+        ${barSegs}
+      </div>
       <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--text-muted)">
-        ${motivi.map(m => `<span><span style="display:inline-block;width:6px;height:6px;background:#ef4444;border-radius:50%;margin-right:5px;vertical-align:middle"></span>${m.label} <b style="color:var(--text)">${m.count}</b></span>`).join('')}
+        ${motivi.map(m => `<span><span style="display:inline-block;width:6px;height:6px;background:${m.color};border-radius:50%;margin-right:5px;vertical-align:middle"></span>${m.label} <b style="color:var(--text)">${m.count}</b></span>`).join('')}
       </div>
     </div>
   `;

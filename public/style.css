@@ -104,10 +104,10 @@ body {
   margin-bottom: 32px;
 }
 .page-h1 {
-  font-size: 52px;
-  font-weight: 800;
+  font-size: 68px;
+  font-weight: 900;
   color: var(--brand);
-  letter-spacing: -1.5px;
+  letter-spacing: -2px;
   line-height: 1;
 }
 .page-actions {
@@ -131,48 +131,51 @@ body {
 
 /* TABS */
 .tabs {
-  display: flex; gap: 8px;
+  display: flex; gap: 6px;
   background: var(--card);
-  border-radius: 14px;
-  padding: 8px;
+  border-radius: 16px;
+  padding: 6px;
   box-shadow: var(--shadow);
   margin-bottom: 24px;
 }
 .tab {
   flex: 1;
-  padding: 12px 20px;
-  border-radius: 10px;
+  padding: 14px 22px;
+  border-radius: 12px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   background: transparent;
   border: 0;
-  color: var(--text-muted);
+  color: var(--text);
   display: flex; align-items: center; justify-content: center; gap: 10px;
-  transition: all 0.15s;
+  transition: all 0.18s;
 }
-.tab:hover { color: var(--text); }
+.tab:hover { background: #f8fafc; }
 .tab.active {
   background: var(--brand);
   color: white;
+  box-shadow: 0 6px 20px rgba(15,23,42,0.15);
 }
 .tab .tab-badge {
-  background: #dc2626;
+  background: #ef4444;
   color: white;
   font-size: 11px;
   font-weight: 700;
   padding: 2px 8px;
+  min-width: 22px;
   border-radius: 999px;
-  min-width: 24px;
   text-align: center;
+  box-shadow: 0 2px 6px rgba(239,68,68,0.4);
 }
-.tab.active .tab-badge { background: rgba(255,255,255,0.25); }
+.tab.active .tab-badge { background: rgba(255,255,255,0.22); box-shadow: none; }
 .tab .tab-avatar {
-  width: 22px; height: 22px;
+  width: 26px; height: 26px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #fbbf24, #f97316);
-  color: white; font-size: 11px; font-weight: 700;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #ea580c 100%);
+  color: white; font-size: 12px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 6px rgba(245,158,11,0.4);
 }
 
 /* PERIOD */
@@ -195,7 +198,7 @@ body {
   transition: all 0.15s;
 }
 .pill:hover { color: var(--text); background: var(--card); }
-.pill.active { background: var(--primary); color: white; }
+.pill.active { background: var(--primary); color: white; box-shadow: 0 4px 12px rgba(37,99,235,0.35); }
 .period-range { display: flex; align-items: center; gap: 8px; }
 .period-range input {
   padding: 8px 12px;
@@ -247,10 +250,10 @@ body {
 }
 .team-card {
   background: var(--card);
-  border-radius: var(--radius);
-  padding: 32px;
+  border-radius: 20px;
+  padding: 36px;
   box-shadow: var(--shadow);
-  display: flex; align-items: center; gap: 32px;
+  display: flex; align-items: center; gap: 36px;
 }
 .donut {
   width: 180px; height: 180px;
@@ -267,7 +270,7 @@ body {
   text-align: center;
 }
 .donut-label { font-size: 10px; letter-spacing: 1.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
-.donut-value { font-size: 40px; font-weight: 700; color: var(--brand); line-height: 1.1; }
+.donut-value { font-size: 48px; font-weight: 800; color: var(--brand); line-height: 1.05; letter-spacing: -1px; }
 .donut-sub { font-size: 12px; color: var(--text-muted); }
 
 .team-info {
@@ -283,11 +286,11 @@ body {
 
 /* ROP DARK CARD */
 .rop-card {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  border-radius: var(--radius);
-  padding: 32px;
+  background: radial-gradient(ellipse at top right, #1e293b 0%, #0f172a 60%);
+  border-radius: 20px;
+  padding: 36px;
   color: white;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 20px 40px rgba(15,23,42,0.25);
   position: relative;
   overflow: hidden;
 }
@@ -302,7 +305,7 @@ body {
 }
 .rop-header { font-size: 11px; letter-spacing: 1.5px; color: rgba(255,255,255,0.55); text-transform: uppercase; font-weight: 600; }
 .rop-main { display: flex; align-items: baseline; gap: 12px; margin: 8px 0; }
-.rop-value { font-size: 56px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
+.rop-value { font-size: 68px; font-weight: 800; letter-spacing: -2px; line-height: 1; }
 .trend-chip { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; }
 .trend-up { background: rgba(16,185,129,0.2); color: #34d399; }
 .trend-down { background: rgba(239,68,68,0.2); color: #f87171; }
@@ -325,8 +328,9 @@ body {
 }
 .rop-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #eab308, #f59e0b);
+  background: linear-gradient(90deg, #fde047 0%, #facc15 50%, #eab308 100%);
   border-radius: 999px;
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.6), 0 0 4px rgba(250, 204, 21, 0.9);
 }
 .rop-bar-target {
   position: absolute; top: -3px; bottom: -3px;
@@ -370,13 +374,21 @@ body {
   display: flex; align-items: center; justify-content: center;
   font-size: 20px;
 }
-.metric-card .m-label { font-size: 11px; letter-spacing: 1.5px; color: rgba(255,255,255,0.75); text-transform: uppercase; font-weight: 600; }
-.metric-card .m-value { font-size: 34px; font-weight: 800; letter-spacing: -0.5px; margin-top: 8px; display: flex; align-items: baseline; gap: 10px; }
+.metric-card .m-label { font-size: 11px; letter-spacing: 1.5px; color: rgba(255,255,255,0.85); text-transform: uppercase; font-weight: 700; }
+.metric-card .m-value { font-size: 42px; font-weight: 800; letter-spacing: -1px; margin-top: 8px; display: flex; align-items: baseline; gap: 10px; }
 .metric-card .m-sub { font-size: 12px; color: rgba(255,255,255,0.85); margin-top: 8px; }
-.metric-green { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-.metric-cyan { background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%); }
-.metric-purple { background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%); }
-.metric-orange { background: linear-gradient(135deg, #f97316 0%, #dc2626 100%); }
+.metric-green  { background: linear-gradient(135deg, #34d399 0%, #10b981 50%, #059669 100%); }
+.metric-cyan   { background: linear-gradient(135deg, #67e8f9 0%, #22d3ee 50%, #06b6d4 100%); }
+.metric-purple { background: linear-gradient(135deg, #d946ef 0%, #a855f7 50%, #7c3aed 100%); }
+.metric-orange { background: linear-gradient(135deg, #fb923c 0%, #f97316 50%, #ea580c 100%); }
+.metric-card::before {
+  content: '';
+  position: absolute;
+  top: -30%; right: -20%;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 60%);
+  pointer-events: none;
+}
 
 /* TOAST */
 .toast {
