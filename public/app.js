@@ -640,9 +640,89 @@ function renderVenditoreCard(coach) {
         Per l'obiettivo mancano <b>${fmtEur(mancano)}</b>, circa <b>${stimaVendite} vendite</b>
       </div>
 
+      ${renderNonChiusiCard(coach)}
+      ${renderAccontiCard(coach)}
       ${renderVelocitaCard(coach)}
+      ${renderChiParlaCard(coach)}
+      ${renderVotoCard(coach)}
 
       <button class="btn-analizza" onclick="state.activeTab='coach:${coach}';render()">Analizza ${coach}</button>
+    </div>
+  `;
+}
+
+// Non chiusi = check-up con VENDUTO=false MA il check-up è stato FATTO
+// Motivi (Giardino/Bocciati/Prezzo/Genitori) sono placeholder finché non aggiungiamo le colonne
+function renderNonChiusiCard(coach) {
+  const cu = state.data.checkup.filter(c => (!coach || c.coach === coach) && String(c.checkupStato).toUpperCase() === 'FATTO' && !c.venduto);
+  const total = cu.length;
+  // Placeholder distribuzione motivi (da collegare quando avrai colonne nel foglio)
+  const motivi = [
+    { label: 'Giardino',       count: 0 },
+    { label: 'Non rispondono', count: 0 },
+    { label: 'Bocciati',       count: 0 },
+    { label: 'Prezzo',         count: 0 },
+    { label: 'Genitori',       count: 0 }
+  ];
+  return `
+    <div>
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">
+        Non chiusi · ${total}
+      </div>
+      <div style="height:10px;background:linear-gradient(90deg,#f87171,#ef4444,#dc2626);border-radius:999px;margin-bottom:10px"></div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--text-muted)">
+        ${motivi.map(m => `<span><span style="display:inline-block;width:6px;height:6px;background:#ef4444;border-radius:50%;margin-right:5px;vertical-align:middle"></span>${m.label} <b style="color:var(--text)">${m.count}</b></span>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderAccontiCard(coach) {
+  // Placeholder: 0 acconti finche non aggiungi colonna "Acconto" nel foglio
+  const acconti = 0;
+  const importo = 0;
+  return `
+    <div style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px">
+      <span>⏳</span>
+      <span><b style="color:var(--text)">${acconti} acconti</b> da chiudere · <b style="color:var(--text)">${fmtEur(importo)}</b></span>
+    </div>
+  `;
+}
+
+function renderChiParlaCard(coach) {
+  // Placeholder: 50/50. Da collegare Fathom API in futuro
+  const coachPct = 50;
+  const clientePct = 50;
+  const chiamate = 0;
+  return `
+    <div>
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">
+        Chi parla nelle chiamate · media di ${chiamate} chiamate registrate
+      </div>
+      <div style="display:flex;height:8px;border-radius:999px;overflow:hidden;background:#eef2f7;margin-bottom:6px">
+        <div style="width:${coachPct}%;background:#ef4444"></div>
+        <div style="width:${clientePct}%;background:#06b6d4"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted)">
+        <span>Parla ${coach} · <b style="color:var(--text)">${coachPct}%</b></span>
+        <span>Parla il cliente · <b style="color:var(--text)">${clientePct}%</b></span>
+      </div>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:6px;font-style:italic">In arrivo: analisi tramite Fathom API</div>
+    </div>
+  `;
+}
+
+function renderVotoCard(coach) {
+  // Placeholder voto
+  const voto = 0;
+  const chiamate = 0;
+  return `
+    <div>
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Voto delle chiamate</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:44px;height:44px;border-radius:50%;background:#fef3c7;color:#d97706;font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center;border:2px solid #fde68a">${voto.toFixed(1).replace('.', ',')}</div>
+        <div style="font-size:12px;color:var(--text-muted)">su 10 · media di ${chiamate} chiamate registrate nel periodo</div>
+      </div>
     </div>
   `;
 }
