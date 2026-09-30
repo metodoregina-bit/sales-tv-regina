@@ -3,7 +3,7 @@
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
-const OBIETTIVO_COACH = 25000; // per coach al mese
+const OBIETTIVO_COACH = 10000; // per coach al mese
 
 const CHANNEL_META = {
   'Queen Challenge': { icon: '👑' },
@@ -397,17 +397,32 @@ function renderHome() {
       </div>
     </section>
 
-    <!-- SEZIONE 2: VENDITORI -->
+    <!-- SEZIONE PERCORSO: funnel -->
+    <section>
+      <div class="section-label orange">Percorso</div>
+      <div class="section-title">Dal contatto alla vendita</div>
+      <div class="section-sub">Quanti passano da un passo al successivo</div>
+      ${renderPercorso(agg)}
+    </section>
+
+    <!-- SEZIONE VENDITORI -->
     <section>
       <div class="section-label purple">Venditori</div>
       <div class="section-title">${coaches.join(' e ')}</div>
-      <div class="section-sub">Performance per coach</div>
+      <div class="section-sub">Passa col mouse su un numero per vedere il dettaglio</div>
       <div class="venditori-grid">
         ${coaches.map(c => renderVenditoreCard(c)).join('')}
       </div>
     </section>
 
-    <!-- SEZIONE 3: CANALI -->
+    <!-- SEZIONE ANDAMENTO: grafico mensile -->
+    <section>
+      <div class="section-label">Andamento</div>
+      <div class="section-title">Fatturato mese per mese</div>
+      ${renderAndamento(coaches)}
+    </section>
+
+    <!-- SEZIONE CANALI -->
     <section>
       <div class="section-label cyan">Canali</div>
       <div class="section-title">Da dove arrivano le vendite</div>
@@ -417,7 +432,7 @@ function renderHome() {
       </div>
     </section>
 
-    <!-- SEZIONE 4: PRODOTTI -->
+    <!-- SEZIONE PRODOTTI -->
     <section>
       <div class="section-label pink">Prodotti</div>
       <div class="section-title">Cosa si vende</div>
@@ -425,10 +440,150 @@ function renderHome() {
         ${renderProdotti()}
       </div>
       <div class="footer-note">
-        Fatturato = vendite fatte nel periodo. Incassato = soldi arrivati nel periodo. Le frecce confrontano con il periodo precedente.
+        Fatturato = vendite fatte nel periodo (check-up con VENDUTO spuntato). Incassato = soldi arrivati nel periodo. Le frecce confrontano con il periodo precedente.
       </div>
     </section>
   `;
+}
+
+// ─────────────── PERCORSO (funnel visualization) ───────────────
+function renderPercorso(agg) {
+  const steps = [
+    { label: 'Prospect', value: agg.prospect, color: '#3b82f6', pctOf: null },
+    { label: 'Chiamati', value: agg.chiamati.length, color: '#a855f7', pctOf: agg.prospect },
+    { label: 'Check-up', value: agg.checkup, color: '#f97316', pctOf: agg.chiamati.length },
+    { label: 'Vendite', value: agg.vendite, color: '#10b981', pctOf: agg.checkup }
+  ];
+  const max = Math.max(1, agg.prospect);
+  return `
+    <div class="prodotti-card">
+      <div style="display:flex;align-items:flex-end;gap:16px;padding:20px 0">
+        ${steps.map(s => {
+          const w = (s.value / max) * 100;
+          const pct = s.pctOf ? Math.round((s.value / s.pctOf) * 100) : null;
+          return `
+            <div style="flex:1;text-align:center">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:8px">${s.label}</div>
+              <div style="font-size:32px;font-weight:800;color:${s.color};line-height:1">${s.value}</div>
+              ${pct !== null ? `<div style="font-size:12px;color:var(--text-muted);margin-top:6px">${pct}% del passo prima</div>` : `<div style="font-size:12px;color:var(--text-muted);margin-top:6px">Totale</div>`}
+              <div style="height:8px;background:#eef2f7;border-radius:999px;margin-top:12px;overflow:hidden">
+                <div style="height:100%;background:${s.color};width:${w}%;border-radius:999px"></div>
+              </div>
+            </div>
+            ${s !== steps[steps.length - 1] ? `<div style="color:var(--text-muted);font-size:24px;padding:0 4px;align-self:center">→</div>` : ''}
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ─────────────── ANDAMENTO (grafico mensile) ───────────────
+function renderAndamento(coaches) {
+  // Prendo tutti i check-up con venduto=true degli ultimi 12 mesi
+  const now = new Date();
+  const months = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+      label: d.toLocaleDateString('it-IT', { month: 'short' }) + ' ' + String(d.getFullYear()).slice(2)
+    });
+  }
+  const colors = ['#3b82f6', '#f97316', '#a855f7', '#10b981'];
+  const series = coaches.map((c, i) => {
+    const vs = venditeDaCheckup(c);
+    const byMonth = {};
+    vs.forEach(v => {
+      if (!v.dataVendita) return;
+      const mk = v.dataVendita.substring(0, 7);
+      byMonth[mk] = (byMonth[mk] || 0) + v.importo;
+    });
+    return {
+      coach: c,
+      color: colors[i % colors.length],
+      values: months.map(m => byMonth[m.key] || 0)
+    };
+  });
+  const maxV = Math.max(1, ...series.flatMap(s => s.values));
+  const W = 800, H = 220, PAD_L = 50, PAD_R = 20, PAD_T = 20, PAD_B = 40;
+  const CW = W - PAD_L - PAD_R;
+  const CH = H - PAD_T - PAD_B;
+  const stepX = CW / (months.length - 1);
+  const pathFor = vals => vals.map((v, i) => {
+    const x = PAD_L + i * stepX;
+    const y = PAD_T + CH - (v / maxV) * CH;
+    return (i === 0 ? 'M' : 'L') + x + ',' + y;
+  }).join(' ');
+  return `
+    <div class="prodotti-card">
+      <div style="display:flex;justify-content:flex-end;gap:16px;margin-bottom:12px">
+        ${series.map(s => `<span style="font-size:12px;color:var(--text-muted)"><span style="display:inline-block;width:12px;height:2px;background:${s.color};vertical-align:middle;margin-right:6px"></span>${s.coach}</span>`).join('')}
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
+        ${[0,0.25,0.5,0.75,1].map(f => {
+          const y = PAD_T + CH * (1 - f);
+          const val = Math.round(maxV * f);
+          return `<line x1="${PAD_L}" y1="${y}" x2="${W-PAD_R}" y2="${y}" stroke="#eef2f7" stroke-width="1"/>
+                  <text x="${PAD_L - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="#94a3b8">${new Intl.NumberFormat('it-IT').format(val)}</text>`;
+        }).join('')}
+        ${months.map((m, i) => {
+          const x = PAD_L + i * stepX;
+          return `<text x="${x}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#94a3b8">${m.label}</text>`;
+        }).join('')}
+        ${series.map(s => `
+          <path d="${pathFor(s.values)}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          ${s.values.map((v, i) => {
+            const x = PAD_L + i * stepX;
+            const y = PAD_T + CH - (v / maxV) * CH;
+            return `<circle cx="${x}" cy="${y}" r="3" fill="${s.color}"/>`;
+          }).join('')}
+        `).join('')}
+      </svg>
+    </div>
+  `;
+}
+
+// ─────────────── VELOCITÀ MEDIA ───────────────
+function velocitaMedia(coach) {
+  const cu = state.data.checkup.filter(c => !coach || c.coach === coach);
+  const tra = (a, b) => {
+    if (!a || !b) return null;
+    const da = new Date(a), db = new Date(b);
+    return (db - da) / 86400000; // giorni
+  };
+  const gaps = { contattoChiamata: [], chiamataCheckup: [], checkupVendita: [], contattoVendita: [] };
+  cu.forEach(c => {
+    if (c.setting && c.dataProspect) {
+      // Non abbiamo data chiamata separata — usiamo dataProspect
+    }
+    if (c.dataProspect && c.dataCheckup) {
+      const g = tra(c.dataProspect, c.dataCheckup);
+      if (g !== null && g >= 0) gaps.chiamataCheckup.push(g);
+    }
+    if (c.venduto && c.dataCheckup) {
+      // Consideriamo vendita = data checkup (fallback)
+      gaps.checkupVendita.push(0);
+    }
+    if (c.venduto && c.dataProspect && c.dataCheckup) {
+      const g = tra(c.dataProspect, c.dataCheckup);
+      if (g !== null && g >= 0) gaps.contattoVendita.push(g);
+    }
+  });
+  const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+  const fmtGiorni = g => {
+    if (!g || g < 0.04) return '—';
+    if (g < 1) return Math.round(g * 24) + 'h';
+    const d = Math.floor(g);
+    const h = Math.round((g - d) * 24);
+    return h ? `${d}g ${h}h` : `${d}g`;
+  };
+  return {
+    contattoChiamata: '—',
+    chiamataCheckup: fmtGiorni(avg(gaps.chiamataCheckup)),
+    checkupVendita: fmtGiorni(avg(gaps.checkupVendita)),
+    contattoVendita: fmtGiorni(avg(gaps.contattoVendita))
+  };
 }
 
 function renderVenditoreCard(coach) {
@@ -483,6 +638,37 @@ function renderVenditoreCard(coach) {
 
       <div class="venditore-mancano">
         Per l'obiettivo mancano <b>${fmtEur(mancano)}</b>, circa <b>${stimaVendite} vendite</b>
+      </div>
+
+      ${renderVelocitaCard(coach)}
+
+      <button class="btn-analizza" onclick="state.activeTab='coach:${coach}';render()">Analizza ${coach}</button>
+    </div>
+  `;
+}
+
+function renderVelocitaCard(coach) {
+  const v = velocitaMedia(coach);
+  return `
+    <div>
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Velocità · in media</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <div class="mini-metric">
+          <div class="l">Contatto → chiamata</div>
+          <div class="v" style="font-size:16px">${v.contattoChiamata}</div>
+        </div>
+        <div class="mini-metric">
+          <div class="l">Chiamata → check-up</div>
+          <div class="v" style="font-size:16px">${v.chiamataCheckup}</div>
+        </div>
+        <div class="mini-metric">
+          <div class="l">Check-up → vendita</div>
+          <div class="v" style="font-size:16px">${v.checkupVendita}</div>
+        </div>
+        <div class="mini-metric">
+          <div class="l">Contatto → vendita</div>
+          <div class="v" style="font-size:16px">${v.contattoVendita}</div>
+        </div>
       </div>
     </div>
   `;
