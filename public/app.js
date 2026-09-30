@@ -15,7 +15,7 @@ const CHANNEL_META = {
 
 const state = {
   data: null,
-  period: "thisMonth",
+  period: "all",
   dateFrom: null,
   dateTo: null,
   activeTab: 'home',

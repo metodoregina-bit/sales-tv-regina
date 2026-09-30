@@ -231,7 +231,13 @@ app.get('/api/data', async (req, res) => {
         coaches: [...new Set([
           ...vendite.map(v => v.coach),
           ...checkup.map(c => c.coach)
-        ].filter(c => c && String(c).trim() && String(c).trim() !== '0' && String(c).trim().length > 1))].sort()
+        ].filter(c => {
+          const s = String(c || '').trim();
+          if (!s) return false;
+          if (/^[0-9]+$/.test(s)) return false; // solo numeri
+          if (s.toUpperCase() === 'TRUE' || s.toUpperCase() === 'FALSE') return false;
+          return true;
+        }))].sort()
       }
     });
   } catch (e) {
