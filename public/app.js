@@ -195,31 +195,82 @@ function venditeDaCheckup(coach) {
     }));
 }
 
+// Fetch KPI dalla riga Sales TV TOTALE (coach=null → TOTALE, coach="Sofia" → Sofia)
+function stvRow(coach) {
+  const stv = state.data && state.data.salesTV && state.data.salesTV.totale;
+  if (!stv) return null;
+  if (!coach) return stv.totale || null;
+  return (stv.coaches || []).find(c => c.name === coach) || null;
+}
+
+function stvCanaleRow(canale, coach) {
+  const stv = state.data && state.data.salesTV && state.data.salesTV.canali && state.data.salesTV.canali[canale];
+  if (!stv) return null;
+  if (!coach) return stv.totale || null;
+  return (stv.coaches || []).find(c => c.name === coach) || null;
+}
+
+// Periodo dichiarato nel foglio Sales TV TOTALE (celle DA/A)
+function sheetPeriod() {
+  const stv = state.data && state.data.salesTV && state.data.salesTV.totale;
+  if (!stv || !stv.dateFrom || !stv.dateTo) return null;
+  return { from: stv.dateFrom, to: stv.dateTo };
+}
+
 function aggregateFor(coach) {
   if (!state.data) return null;
-  const [from, to] = computePeriodRange();
+
+  // Priorità al periodo del foglio Sales TV (è lì che l'utente imposta DA/A)
+  const sp = sheetPeriod();
+  const [from, to] = sp ? [sp.from, sp.to] : computePeriodRange();
   const [prevFrom, prevTo] = shiftRange(from, to, -1);
 
+  // Dati raw dai check-up (per percorso/non-chiusi/liste venditore)
   const vendite = venditeDaCheckup(coach);
   let checkup = state.data.checkup;
   if (coach && coach !== '__ALL__') {
     checkup = checkup.filter(c => c.coach === coach);
   }
-
   const vendPeriod = vendite.filter(v => inRange(v.dataVendita, from, to));
   const incPeriod = vendite.filter(v => inRange(v.dataIncasso, from, to));
   const cuProspect = checkup.filter(c => inRange(c.dataProspect, from, to));
   const cuFatti = checkup.filter(c => inRange(c.dataCheckup, from, to) && String(c.checkupStato).toUpperCase() === 'FATTO');
   const chiamati = checkup.filter(c => inRange(c.dataProspect, from, to) && c.setting);
 
-  const fatt = vendPeriod.reduce((a, v) => a + v.importo, 0);
-  const inc = incPeriod.reduce((a, v) => a + v.importo, 0);
-  const daLeadPrecedenti = vendite.filter(v => inRange(v.dataProspect, prevFrom, prevTo) && inRange(v.dataIncasso, from, to)).reduce((a, v) => a + v.importo, 0);
-
   const vendPrev = vendite.filter(v => inRange(v.dataVendita, prevFrom, prevTo));
   const incPrev = vendite.filter(v => inRange(v.dataIncasso, prevFrom, prevTo));
   const fattPrev = vendPrev.reduce((a, v) => a + v.importo, 0);
   const incPrev_ = incPrev.reduce((a, v) => a + v.importo, 0);
+
+  // KPI PRIMARI: letti dal foglio Sales TV TOTALE (fonte autorevole, già aggregata)
+  const stv = stvRow(coach);
+  let fatt, inc, prospect, nCheckup, nVendite, rop, ropTarget, roc, obiettivo, ideal;
+  if (stv) {
+    fatt = stv.fattPerCassa || 0;
+    inc = stv.fattPerCassa || 0; // il foglio non distingue; "incassato" è il fatturato per cassa
+    prospect = stv.prospectAssegnati || 0;
+    nCheckup = stv.checkup || 0;
+    nVendite = stv.vendite || 0;
+    rop = stv.rop || 0;
+    ropTarget = stv.obiettivoRop || 400;
+    roc = stv.chiamati ? Math.round(fatt / stv.chiamati) : 0;
+    obiettivo = stv.obiettivo || OBIETTIVO_COACH;
+    ideal = stv.ideal || 0;
+  } else {
+    // Fallback a calcoli locali (se foglio non disponibile)
+    fatt = vendPeriod.reduce((a, v) => a + v.importo, 0);
+    inc = incPeriod.reduce((a, v) => a + v.importo, 0);
+    prospect = cuProspect.length;
+    nCheckup = cuFatti.length;
+    nVendite = vendPeriod.length;
+    rop = prospect ? Math.round(fatt / prospect) : 0;
+    ropTarget = 400;
+    roc = chiamati.length ? Math.round(fatt / chiamati.length) : 0;
+    obiettivo = OBIETTIVO_COACH;
+    ideal = 0;
+  }
+
+  const daLeadPrecedenti = vendite.filter(v => inRange(v.dataProspect, prevFrom, prevTo) && inRange(v.dataIncasso, from, to)).reduce((a, v) => a + v.importo, 0);
 
   return {
     from, to,
@@ -227,13 +278,18 @@ function aggregateFor(coach) {
     fatt, inc, fattPrev, incPrev: incPrev_, daLeadPrecedenti,
     trendFatt: fattPrev ? ((fatt - fattPrev) / fattPrev) * 100 : 0,
     trendInc: incPrev_ ? ((inc - incPrev_) / incPrev_) * 100 : 0,
-    prospect: cuProspect.length,
-    vendite: vendPeriod.length,
-    checkup: cuFatti.length,
-    ticketMedio: vendPeriod.length ? fatt / vendPeriod.length : 0,
-    rop: cuProspect.length ? Math.round(fatt / cuProspect.length) : 0,
-    ropTarget: 400,
-    roc: chiamati.length ? Math.round(fatt / chiamati.length) : 0
+    prospect,
+    vendite: nVendite,
+    checkup: nCheckup,
+    chiamatiCount: stv ? (stv.chiamati || 0) : chiamati.length,
+    ticketMedio: nVendite ? fatt / nVendite : 0,
+    rop,
+    ropTarget,
+    roc,
+    rocu: nCheckup ? Math.round(fatt / nCheckup) : 0,
+    obiettivo,
+    ideal,
+    stv // la riga Sales TV grezza (null se foglio non caricato)
   };
 }
 
@@ -250,6 +306,10 @@ function shiftRange(from, to, offsetMonths) {
 
 function activeCoaches() {
   if (!state.data) return [];
+  // Priorità alla lista venditori del foglio Sales TV TOTALE (ordinata come il foglio)
+  if (state.data.config && state.data.config.coaches && state.data.config.coaches.length) {
+    return state.data.config.coaches.slice();
+  }
   const set = new Set();
   state.data.checkup.forEach(c => {
     const s = String(c.coach || '').trim();
@@ -357,7 +417,11 @@ function renderContent() {
 function renderHome() {
   const agg = aggregateFor(null);
   const coaches = activeCoaches();
-  const totObiettivo = coaches.length * OBIETTIVO_COACH || OBIETTIVO_COACH;
+  // Obiettivo team = somma degli obiettivi dei singoli coach (o x N se solo TOTALE)
+  const totObiettivo = coaches.reduce((s, c) => {
+    const a = aggregateFor(c);
+    return s + (a && a.obiettivo ? a.obiettivo : OBIETTIVO_COACH);
+  }, 0) || (agg.obiettivo || OBIETTIVO_COACH);
   const pctObj = totObiettivo ? (agg.fatt / totObiettivo) * 100 : 0;
   const mancano = Math.max(0, totObiettivo - agg.fatt);
   const [ , to] = agg.from ? [agg.from, agg.to] : ['', ''];
@@ -391,18 +455,16 @@ function renderHome() {
 
       <div class="team-grid">
         <div class="team-card">
-          <div class="donut">
+          <div class="donut donut-lg">
             ${donutSVG(pctObj)}
             <div class="donut-center">
-              <div class="donut-label">Obiettivo</div>
-              <div class="donut-value">${fmtPctInt(pctObj)}</div>
-              <div class="donut-sub">di ${fmtEur(totObiettivo)}</div>
+              <div class="donut-label">Fatturato</div>
+              <div class="donut-value donut-value-eur">${fmtEur(agg.fatt)}</div>
+              <div class="donut-sub">${fmtPctInt(pctObj)} di ${fmtEur(totObiettivo)}</div>
             </div>
           </div>
           <div class="team-info">
-            <div class="info-label">Mancano</div>
-            <div class="info-value">${fmtEur(mancano)}</div>
-            <div class="info-sub">Circa <b>${stimaVendite} vendite</b> entro il ${dayEnd} ${monthName}</div>
+            <div class="info-sub-top">Per l'obiettivo mancano <b>${fmtEur(mancano)}</b>, circa <b>${stimaVendite} vendite</b></div>
             ${(() => {
               const proj = proiezioneFineMese(agg.fatt, agg.from, agg.to);
               if (!proj) return '<div class="info-hint">dove si arriva oggi a ritmo costante</div>';
@@ -551,8 +613,8 @@ function renderHome() {
 function renderPercorso(agg) {
   const steps = [
     { label: 'Contatti', value: agg.prospect,            color: '#facc15', pctOf: null },
-    { label: 'Chiamati', value: agg.chiamati.length,     color: '#eab308', pctOf: agg.prospect },
-    { label: 'Check-up', value: agg.checkup,             color: '#6366f1', pctOf: agg.chiamati.length },
+    { label: 'Chiamati', value: agg.chiamatiCount,       color: '#eab308', pctOf: agg.prospect },
+    { label: 'Check-up', value: agg.checkup,             color: '#6366f1', pctOf: agg.chiamatiCount },
     { label: 'Vendite',  value: agg.vendite,             color: '#10b981', pctOf: agg.checkup }
   ];
   const max = Math.max(1, agg.prospect);
@@ -757,11 +819,12 @@ function velocitaMedia(coach) {
 
 function renderVenditoreCard(coach) {
   const agg = aggregateFor(coach);
-  const pctObj = OBIETTIVO_COACH ? (agg.fatt / OBIETTIVO_COACH) * 100 : 0;
-  const mancano = Math.max(0, OBIETTIVO_COACH - agg.fatt);
+  const obiettivo = agg.obiettivo || OBIETTIVO_COACH;
+  const pctObj = obiettivo ? (agg.fatt / obiettivo) * 100 : 0;
+  const mancano = Math.max(0, obiettivo - agg.fatt);
   const stimaVendite = agg.ticketMedio ? Math.ceil(mancano / agg.ticketMedio) : 0;
-  const chiusura = agg.cuFatti.length ? (agg.vendite / agg.cuFatti.length) * 100 : 0;
-  const daChiamare = agg.cuProspect.filter(c => !c.setting).length;
+  const chiusura = agg.checkup ? (agg.vendite / agg.checkup) * 100 : 0;
+  const daChiamare = Math.max(0, agg.prospect - agg.chiamatiCount);
 
   return `
     <div class="venditore-card">
@@ -782,7 +845,7 @@ function renderVenditoreCard(coach) {
           <div class="venditore-donut-center">
             <div class="l">Fatturato</div>
             <div class="v">${fmtEur(agg.fatt)}</div>
-            <div class="s">${fmtPctInt(pctObj)} di ${fmtEur(OBIETTIVO_COACH)}</div>
+            <div class="s">${fmtPctInt(pctObj)} di ${fmtEur(obiettivo)}</div>
           </div>
         </div>
         <div class="venditore-quad">
@@ -812,7 +875,7 @@ function renderVenditoreCard(coach) {
       ${(() => {
         const proj = proiezioneFineMese(agg.fatt, agg.from, agg.to);
         if (!proj) return '';
-        const pctProj = OBIETTIVO_COACH ? (proj / OBIETTIVO_COACH) * 100 : 0;
+        const pctProj = obiettivo ? (proj / obiettivo) * 100 : 0;
         const good = pctProj >= 100;
         return `
           <div class="se-continua-box ${good ? 'ok' : 'warn'}">
@@ -1125,10 +1188,11 @@ function subViewCounts(coach, agg) {
 }
 
 function renderSubStats(coach, agg) {
-  const pctObj = OBIETTIVO_COACH ? (agg.fatt / OBIETTIVO_COACH) * 100 : 0;
-  const mancano = Math.max(0, OBIETTIVO_COACH - agg.fatt);
+  const obiettivo = agg.obiettivo || OBIETTIVO_COACH;
+  const pctObj = obiettivo ? (agg.fatt / obiettivo) * 100 : 0;
+  const mancano = Math.max(0, obiettivo - agg.fatt);
   const stimaVendite = agg.ticketMedio ? Math.ceil(mancano / agg.ticketMedio) : 0;
-  const chiusura = agg.cuFatti.length ? (agg.vendite / agg.cuFatti.length) * 100 : 0;
+  const chiusura = agg.checkup ? (agg.vendite / agg.checkup) * 100 : 0;
   const dayEnd = agg.to.split('-')[2];
   const monthName = new Date(agg.to).toLocaleDateString('it-IT', { month: 'long' });
 
@@ -1144,18 +1208,17 @@ function renderSubStats(coach, agg) {
 
       <div class="team-grid">
         <div class="team-card">
-          <div class="donut">
+          <div class="donut donut-lg">
             ${donutSVG(pctObj)}
             <div class="donut-center">
-              <div class="donut-label">Obiettivo</div>
-              <div class="donut-value">${fmtPctInt(pctObj)}</div>
-              <div class="donut-sub">di ${fmtEur(OBIETTIVO_COACH)}</div>
+              <div class="donut-label">Fatturato</div>
+              <div class="donut-value donut-value-eur">${fmtEur(agg.fatt)}</div>
+              <div class="donut-sub">${fmtPctInt(pctObj)} di ${fmtEur(obiettivo)}</div>
             </div>
           </div>
           <div class="team-info">
-            <div class="info-label">Mancano</div>
-            <div class="info-value">${fmtEur(mancano)}</div>
-            <div class="info-sub">Circa <b>${stimaVendite} vendite</b> entro il ${dayEnd} ${monthName}</div>
+            <div class="info-sub-top">Per l'obiettivo mancano <b>${fmtEur(mancano)}</b>, circa <b>${stimaVendite} vendite</b></div>
+            <div class="info-hint">entro il ${dayEnd} ${monthName}</div>
           </div>
         </div>
 
@@ -1183,7 +1246,7 @@ function renderSubStats(coach, agg) {
         </div>
         <div class="metric-card metric-orange" data-icon="📞">
           <div class="m-label">Chiamati</div>
-          <div class="m-value">${fmtNum(agg.chiamati.length)}</div>
+          <div class="m-value">${fmtNum(agg.chiamatiCount)}</div>
           <div class="m-sub">${agg.prospect} prospect · ${agg.checkup} check-up fatti</div>
         </div>
       </div>

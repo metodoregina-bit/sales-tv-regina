@@ -360,8 +360,14 @@ body {
   text-align: center;
 }
 .donut-label { font-size: 10px; letter-spacing: 1.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
-.donut-value { font-size: 48px; font-weight: 800; color: var(--brand); line-height: 1.05; letter-spacing: -1px; }
-.donut-sub { font-size: 12px; color: var(--text-muted); }
+.donut-value { font-size: 40px; font-weight: 800; color: var(--brand); line-height: 1.05; letter-spacing: -1px; }
+.donut-value-eur { font-size: 32px; letter-spacing: -0.5px; }
+.donut-lg .donut-value-eur { font-size: 36px; }
+.donut-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+/* INFO-SUB-TOP: testo descrittivo prominente sopra box SE CONTINUA */
+.team-info .info-sub-top { font-size: 15px; color: var(--text); line-height: 1.5; }
+.team-info .info-sub-top b { color: var(--brand); font-weight: 700; }
 
 .team-info {
   flex: 1;

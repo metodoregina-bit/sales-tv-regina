@@ -15,6 +15,14 @@ const TAB_SALES = process.env.TAB_SALES || "Check-up Sales prenotati";
 const TAB_ASSISTENZA = process.env.TAB_ASSISTENZA || "Check-up Assistenza prenotati";
 const TAB_MANUALE = process.env.TAB_MANUALE || "Check-up Manuale prenotati";
 
+// Fogli dashboard aggregati (letti direttamente, KPI già calcolati)
+const TAB_STV_TOTALE = process.env.TAB_STV_TOTALE || "Sales TV TOTALE";
+const TAB_STV_QC = process.env.TAB_STV_QC || "Sales TV Queen Challenge";
+const TAB_STV_QUIZ = process.env.TAB_STV_QUIZ || "Sales TV Quiz";
+const TAB_STV_SALES = process.env.TAB_STV_SALES || "Sales TV Sales";
+const TAB_STV_ASSISTENZA = process.env.TAB_STV_ASSISTENZA || "Sales TV Assistenza";
+const TAB_STV_MANUALE = process.env.TAB_STV_MANUALE || "Sales TV Manuale";
+
 // Credenziali login (via env)
 const AUTH_USERS = (process.env.AUTH_USERS || "info@sofiadigiovanni.com:MetodoRegina1ML").split(",").map(p => {
   const [u, pw] = p.split(":");
@@ -192,6 +200,54 @@ function parseVendite(g) {
   })).filter(x => x.dataVendita || x.nome);
 }
 
+// Parse Sales TV dashboard (TOTALE o per canale)
+// Row 0: DA | <data> | row 1: A | <data> | row 4: TOTALE data | row 5+: coach data
+// Columns indici 0-based: 1=COACH, 2=OBIETTIVO (spesso null in gviz),
+// 3=FATT.PER CASSA, 4=FATT.MESE PREC, 5=FATT.X COMP, 7=IDEAL, 8=OBIETTIVO SETTIMANALE,
+// 9=ROP, 10=OBIETTIVO ROP, 11=PROSPECT ASSEGNATI, 12=CHIAMATI, 13=CHECK-UP,
+// 14=% CHECK-UP, 15=VENDITE, 17=%CONV, 21=SCOSTAMENTO
+function parseSalesTV(g) {
+  if (!g || !g.table || !g.table.rows) return null;
+  const rows = g.table.rows;
+
+  const dateFrom = gvizDate(cell(rows[0], 2));
+  const dateTo = gvizDate(cell(rows[1], 2));
+
+  function rowToKpi(row) {
+    if (!row) return null;
+    const name = str(cell(row, 1));
+    if (!name || /^(coach|totale)$/i.test(name) === false && name !== 'TOTALE' && !row.c) return null;
+    return {
+      name,
+      obiettivo: num(cell(row, 2)) || 10000,
+      fattPerCassa: num(cell(row, 3)),
+      fattMesePrec: num(cell(row, 4)),
+      fattXComp: num(cell(row, 5)),
+      ideal: num(cell(row, 7)),
+      obiettivoSettimanale: num(cell(row, 8)),
+      rop: num(cell(row, 9)),
+      obiettivoRop: num(cell(row, 10)),
+      prospectAssegnati: num(cell(row, 11)),
+      chiamati: num(cell(row, 12)),
+      checkup: num(cell(row, 13)),
+      pctCheckup: num(cell(row, 14)),
+      vendite: num(cell(row, 15)),
+      pctConv: num(cell(row, 17)),
+      scostamento: num(cell(row, 21))
+    };
+  }
+
+  // Row 4 = TOTALE, Row 5+ = coaches
+  const totale = rowToKpi(rows[4]);
+  const coaches = [];
+  for (let i = 5; i < rows.length; i++) {
+    const k = rowToKpi(rows[i]);
+    if (k && k.name && !/^=/.test(k.name) && !/\|/.test(k.name)) coaches.push(k);
+  }
+
+  return { dateFrom, dateTo, totale, coaches };
+}
+
 // Parse check-up: A=Data compilazione, B=Nome, C=Cognome, D=Telefono, E=Email,
 // R=Coach (18), S=SETTING (19), X=DATA CHECK-UP (24), Y=CHECK UP (25),
 // AB=VENDUTO (28), AE=PROD VEND (31), AF=IMPORTO (32)
@@ -220,13 +276,22 @@ app.get('/api/data', async (req, res) => {
   if (!isAuthed(req)) return res.status(401).json({ ok: false, error: "Non autenticato" });
 
   try {
-    const [rV, rQC, rQuiz, rSales, rAss, rMan] = await Promise.all([
+    const [
+      rV, rQC, rQuiz, rSales, rAss, rMan,
+      rStvTot, rStvQC, rStvQuiz, rStvSales, rStvAss, rStvMan
+    ] = await Promise.all([
       fetchGviz(TAB_VENDITE).catch(() => null),
       fetchGviz(TAB_QC).catch(() => null),
       fetchGviz(TAB_QUIZ).catch(() => null),
       fetchGviz(TAB_SALES).catch(() => null),
       fetchGviz(TAB_ASSISTENZA).catch(() => null),
-      fetchGviz(TAB_MANUALE).catch(() => null)
+      fetchGviz(TAB_MANUALE).catch(() => null),
+      fetchGviz(TAB_STV_TOTALE).catch(() => null),
+      fetchGviz(TAB_STV_QC).catch(() => null),
+      fetchGviz(TAB_STV_QUIZ).catch(() => null),
+      fetchGviz(TAB_STV_SALES).catch(() => null),
+      fetchGviz(TAB_STV_ASSISTENZA).catch(() => null),
+      fetchGviz(TAB_STV_MANUALE).catch(() => null)
     ]);
 
     const vendite = rV ? parseVendite(rV) : [];
@@ -238,25 +303,45 @@ app.get('/api/data', async (req, res) => {
       ...(rMan ? parseCheckup(rMan, "Manuale") : [])
     ];
 
+    const salesTV = {
+      totale: rStvTot ? parseSalesTV(rStvTot) : null,
+      canali: {
+        "Queen Challenge": rStvQC   ? parseSalesTV(rStvQC)   : null,
+        "Quiz":            rStvQuiz ? parseSalesTV(rStvQuiz) : null,
+        "Sales":           rStvSales? parseSalesTV(rStvSales): null,
+        "Assistenza":      rStvAss  ? parseSalesTV(rStvAss)  : null,
+        "Manuale":         rStvMan  ? parseSalesTV(rStvMan)  : null
+      }
+    };
+
+    // Coaches: prima dai Sales TV TOTALE (fonte autorevole), fallback vendite/checkup
+    let coaches = [];
+    if (salesTV.totale && salesTV.totale.coaches && salesTV.totale.coaches.length) {
+      coaches = salesTV.totale.coaches.map(c => c.name).filter(Boolean);
+    } else {
+      coaches = [...new Set([
+        ...vendite.map(v => v.coach),
+        ...checkup.map(c => c.coach)
+      ].filter(c => {
+        const s = String(c || '').trim();
+        if (!s) return false;
+        if (/^[0-9]+$/.test(s)) return false;
+        if (s.toUpperCase() === 'TRUE' || s.toUpperCase() === 'FALSE') return false;
+        return true;
+      }))].sort();
+    }
+
     res.json({
       ok: true,
       updatedAt: new Date().toISOString(),
       vendite,
       checkup,
+      salesTV,
       config: {
         sheetId: SHEET_ID,
         sheetUrl: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`,
         funnels: ["Queen Challenge", "Quiz", "Sales", "Assistenza", "Manuale"],
-        coaches: [...new Set([
-          ...vendite.map(v => v.coach),
-          ...checkup.map(c => c.coach)
-        ].filter(c => {
-          const s = String(c || '').trim();
-          if (!s) return false;
-          if (/^[0-9]+$/.test(s)) return false; // solo numeri
-          if (s.toUpperCase() === 'TRUE' || s.toUpperCase() === 'FALSE') return false;
-          return true;
-        }))].sort()
+        coaches
       }
     });
   } catch (e) {
