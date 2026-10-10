@@ -703,6 +703,161 @@ body {
   padding: 0 4px;
 }
 
+/* COACH SUB-NAV */
+.coach-subnav {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 6px;
+  background: var(--card);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  margin-bottom: 20px;
+  scrollbar-width: thin;
+}
+.coach-subnav::-webkit-scrollbar { height: 6px; }
+.coach-subnav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.coach-sub {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 14px;
+  border: 0; background: transparent;
+  border-radius: 10px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text); cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  position: relative;
+}
+.coach-sub:hover { background: #f1f5f9; }
+.coach-sub.active {
+  background: var(--brand); color: #fff;
+  box-shadow: 0 4px 12px rgba(15,23,42,0.18);
+}
+.coach-sub-ico { font-size: 14px; line-height: 1; }
+.coach-sub-badge {
+  background: #ef4444; color: #fff;
+  font-size: 10px; font-weight: 700;
+  padding: 1px 7px;
+  min-width: 20px;
+  border-radius: 999px;
+  text-align: center;
+  line-height: 1.4;
+}
+.coach-sub.active .coach-sub-badge { background: rgba(255,255,255,0.25); }
+
+/* DATA TABLE */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.data-table thead tr {
+  text-align: left;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.data-table th { padding: 10px 12px; font-weight: 600; }
+.data-table tbody tr { border-top: 1px solid var(--border); }
+.data-table tbody tr:hover { background: #f8fafc; }
+.data-table td { padding: 12px; }
+.data-table .muted-sm { color: var(--text-muted); font-size: 12px; }
+
+/* CHIPS */
+.chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  line-height: 1.5;
+}
+.chip-grey   { background: #f1f5f9; color: #64748b; }
+.chip-blue   { background: rgba(59,130,246,0.14); color: #2563eb; }
+.chip-green  { background: rgba(16,185,129,0.14); color: #059669; }
+.chip-red    { background: rgba(239,68,68,0.14);  color: #dc2626; }
+.chip-yellow { background: rgba(234,179,8,0.16);  color: #a16207; }
+.chip-purple { background: rgba(168,85,247,0.14); color: #7c3aed; }
+
+/* CALENDARIO */
+.cal-legend {
+  display: flex; align-items: center; gap: 18px;
+  font-size: 12px; color: var(--text-muted);
+  margin: 10px 2px 14px;
+}
+.cal-dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.cal-dot-cu { background: #3b82f6; }
+.cal-dot-vd { background: #10b981; }
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  background: var(--card);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: var(--shadow);
+}
+.cal-dow {
+  font-size: 10px;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 6px 0;
+  font-weight: 600;
+}
+.cal-cell {
+  min-height: 86px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+  display: flex; flex-direction: column; gap: 3px;
+  background: #fff;
+  position: relative;
+}
+.cal-cell.cal-empty { border-color: transparent; background: transparent; }
+.cal-cell.cal-has { border-color: rgba(59,130,246,0.3); background: #f8fbff; }
+.cal-dnum {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.cal-cell.cal-has .cal-dnum { color: var(--text); }
+.cal-item {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.cal-item-cu { background: rgba(59,130,246,0.15); color: #1e40af; }
+.cal-item-vd { background: rgba(16,185,129,0.18); color: #047857; font-weight: 600; }
+.cal-more {
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+.cal-tot {
+  position: absolute;
+  bottom: 4px; right: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent-emerald);
+}
+
 /* RESPONSIVE */
 @media (max-width: 900px) {
   .page { padding: 24px 16px 60px; }

@@ -19,8 +19,25 @@ const state = {
   dateFrom: null,
   dateTo: null,
   activeTab: 'home',
+  coachSubView: 'stats',
   currentUser: null
 };
+
+const COACH_SUBVIEWS = [
+  { id: 'stats',         label: 'Statistiche',    icon: '📊' },
+  { id: 'calendario',    label: 'Calendario',     icon: '📅' },
+  { id: 'contatti',      label: 'Contatti',       icon: '👥' },
+  { id: 'da-chiamare',   label: 'Da chiamare',    icon: '📞' },
+  { id: 'no-risp',       label: 'No risp.',       icon: '🔕' },
+  { id: 'sospesi',       label: 'Sospesi',        icon: '⏸️' },
+  { id: 'checkup',       label: 'Check-up',       icon: '✅' },
+  { id: 'follow-up',     label: 'Follow-up',      icon: '🔄' },
+  { id: 'da-risentire',  label: 'Da risentire',   icon: '🔁' },
+  { id: 'vendite',       label: 'Vendite',        icon: '💰' },
+  { id: 'da-pagare',     label: 'Da pagare',      icon: '💸' },
+  { id: 'persi',         label: 'Persi',          icon: '❌' },
+  { id: 'registrazioni', label: 'Registrazioni',  icon: '🎙️' }
+];
 
 // ─────────────── DOM helpers ───────────────
 
@@ -318,6 +335,7 @@ function renderTabs() {
     </button>
   `).join('');
   $$('.tab').forEach(b => b.addEventListener('click', () => {
+    if (state.activeTab !== b.dataset.tab) state.coachSubView = 'stats';
     state.activeTab = b.dataset.tab;
     render();
   }));
@@ -1011,6 +1029,97 @@ function renderProdotti() {
 
 function renderCoachDetail(coach) {
   const agg = aggregateFor(coach);
+  const sub = state.coachSubView || 'stats';
+  const counts = subViewCounts(coach, agg);
+
+  const subNav = `
+    <div class="coach-subnav">
+      ${COACH_SUBVIEWS.map(v => {
+        const n = counts[v.id];
+        return `<button class="coach-sub ${sub === v.id ? 'active' : ''}" data-sub="${v.id}">
+          <span class="coach-sub-ico">${v.icon}</span>
+          <span class="coach-sub-lbl">${v.label}</span>
+          ${(n != null && n > 0) ? `<span class="coach-sub-badge">${n}</span>` : ''}
+        </button>`;
+      }).join('')}
+    </div>`;
+
+  let body = '';
+  switch (sub) {
+    case 'calendario':    body = renderSubCalendario(coach, agg); break;
+    case 'contatti':      body = renderSubList(coach, agg, 'contatti'); break;
+    case 'da-chiamare':   body = renderSubList(coach, agg, 'da-chiamare'); break;
+    case 'no-risp':       body = renderSubList(coach, agg, 'no-risp'); break;
+    case 'sospesi':       body = renderSubList(coach, agg, 'sospesi'); break;
+    case 'checkup':       body = renderSubList(coach, agg, 'checkup'); break;
+    case 'follow-up':     body = renderSubList(coach, agg, 'follow-up'); break;
+    case 'da-risentire':  body = renderSubList(coach, agg, 'da-risentire'); break;
+    case 'vendite':       body = renderSubVendite(coach, agg); break;
+    case 'da-pagare':     body = renderSubDaPagare(coach, agg); break;
+    case 'persi':         body = renderSubList(coach, agg, 'persi'); break;
+    case 'registrazioni': body = renderSubRegistrazioni(coach, agg); break;
+    default:              body = renderSubStats(coach, agg); break;
+  }
+
+  return subNav + body;
+}
+
+// ─────────────── COACH SUB-VIEWS ───────────────
+
+function filterByCoachAndPeriod(coach, agg) {
+  const d = state.data.checkup.filter(c =>
+    (!coach || c.coach === coach)
+  );
+  return d;
+}
+
+function statusEq(stato, ...targets) {
+  const s = String(stato || '').toUpperCase().replace(/\s+/g, ' ').trim();
+  return targets.some(t => s.includes(t.toUpperCase()));
+}
+
+// Classifica stato check-up in bucket per sub-nav
+function classifyCheckup(c, agg) {
+  const inPeriodProspect = inRange(c.dataProspect, agg.from, agg.to);
+  const inPeriodCheckup = inRange(c.dataCheckup, agg.from, agg.to);
+  const stato = String(c.checkupStato || '').toUpperCase();
+
+  const buckets = [];
+  if (inPeriodProspect) buckets.push('contatti');
+  if (inPeriodProspect && !c.dataCheckup) buckets.push('da-chiamare');
+  if (c.dataCheckup && inPeriodCheckup) {
+    buckets.push('checkup');
+    if (stato.includes('FATTO')) {
+      if (c.venduto) {
+        // vendita → nessun bucket qui (è in Vendite)
+      }
+    }
+    if (statusEq(stato, 'NO SHOW', 'NO RISP', 'NON RISPONDE', 'NR')) buckets.push('no-risp');
+    if (statusEq(stato, 'SOSPES', 'GIARDINO')) buckets.push('sospesi');
+    if (statusEq(stato, 'FOLLOW', 'DA RICHIAMARE', 'RICONTATTARE')) buckets.push('follow-up');
+    if (statusEq(stato, 'RISENTIRE')) buckets.push('da-risentire');
+    if (statusEq(stato, 'PERSO', 'NON VENDUTO', 'KO')) buckets.push('persi');
+  }
+  return buckets;
+}
+
+function subViewCounts(coach, agg) {
+  const data = filterByCoachAndPeriod(coach, agg);
+  const counts = { stats: null, calendario: null, registrazioni: null };
+  const keys = ['contatti','da-chiamare','no-risp','sospesi','checkup','follow-up','da-risentire','persi'];
+  keys.forEach(k => counts[k] = 0);
+  data.forEach(c => {
+    classifyCheckup(c, agg).forEach(b => {
+      if (counts[b] != null) counts[b]++;
+    });
+  });
+  const vendite = venditeDaCheckup(coach).filter(v => inRange(v.dataVendita, agg.from, agg.to));
+  counts.vendite = vendite.length;
+  counts['da-pagare'] = vendite.filter(v => (v.nRate > 0) && ((v.rateIncassate || 0) < v.nRate)).length;
+  return counts;
+}
+
+function renderSubStats(coach, agg) {
   const pctObj = OBIETTIVO_COACH ? (agg.fatt / OBIETTIVO_COACH) * 100 : 0;
   const mancano = Math.max(0, OBIETTIVO_COACH - agg.fatt);
   const stimaVendite = agg.ticketMedio ? Math.ceil(mancano / agg.ticketMedio) : 0;
@@ -1018,7 +1127,6 @@ function renderCoachDetail(coach) {
   const dayEnd = agg.to.split('-')[2];
   const monthName = new Date(agg.to).toLocaleDateString('it-IT', { month: 'long' });
 
-  // Vendite recenti coach
   const vendite = venditeDaCheckup(coach)
     .filter(v => inRange(v.dataVendita, agg.from, agg.to))
     .sort((a, b) => (b.dataVendita || '').localeCompare(a.dataVendita || ''));
@@ -1099,8 +1207,250 @@ function renderCoachDetail(coach) {
   `;
 }
 
+// ─────────────── SUB-VIEW: Lista contatti/check-up ─────────────────
+
+function subListData(coach, agg, kind) {
+  const data = filterByCoachAndPeriod(coach, agg);
+  return data.filter(c => classifyCheckup(c, agg).includes(kind))
+    .sort((a, b) => {
+      const dA = kind === 'contatti' || kind === 'da-chiamare' ? (a.dataProspect || '') : (a.dataCheckup || a.dataProspect || '');
+      const dB = kind === 'contatti' || kind === 'da-chiamare' ? (b.dataProspect || '') : (b.dataCheckup || b.dataProspect || '');
+      return dB.localeCompare(dA);
+    });
+}
+
+function renderSubList(coach, agg, kind) {
+  const titles = {
+    'contatti':     { lbl: 'CONTATTI', title: 'Contatti nel periodo', sub: 'Prospect che hanno fatto la richiesta' },
+    'da-chiamare':  { lbl: 'DA CHIAMARE', title: 'Prospect da contattare', sub: 'Non hanno ancora un check-up fissato' },
+    'no-risp':      { lbl: 'NO RISPOSTA', title: 'No show / non risponde', sub: 'Check-up andati a vuoto' },
+    'sospesi':      { lbl: 'SOSPESI', title: 'Check-up sospesi', sub: 'In valutazione o pausa' },
+    'checkup':      { lbl: 'CHECK-UP', title: 'Tutti i check-up del periodo', sub: 'Fatti o programmati' },
+    'follow-up':    { lbl: 'FOLLOW-UP', title: 'Da ricontattare', sub: 'Richiesto follow-up' },
+    'da-risentire': { lbl: 'DA RISENTIRE', title: 'Da risentire', sub: 'Prospect da risentire' },
+    'persi':        { lbl: 'PERSI', title: 'Check-up persi', sub: 'Non vendita' }
+  };
+  const meta = titles[kind] || { lbl: kind.toUpperCase(), title: kind, sub: '' };
+  const rows = subListData(coach, agg, kind);
+
+  return `
+    <section>
+      <div class="section-label">${meta.lbl}</div>
+      <div class="section-title">${meta.title}</div>
+      <div class="section-sub">${meta.sub} · ${rows.length} ${rows.length === 1 ? 'elemento' : 'elementi'}</div>
+
+      <div class="prodotti-card" style="margin-top:12px">
+        ${rows.length === 0 ? emptyBox('Nessun dato nel periodo') : `
+        <table class="data-table">
+          <thead><tr>
+            <th>Data prospect</th><th>Data check-up</th><th>Cliente</th><th>Funnel</th><th>Stato</th><th>Contatto</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(c => `<tr>
+              <td>${fmtDate(c.dataProspect)}</td>
+              <td>${fmtDate(c.dataCheckup) || '—'}</td>
+              <td><b>${esc(c.nome)} ${esc(c.cognome)}</b></td>
+              <td>${esc(c.funnel)}</td>
+              <td>${statoChip(c.checkupStato, c.venduto)}</td>
+              <td class="muted-sm">${esc(c.telefono) || esc(c.email) || '—'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`}
+      </div>
+    </section>
+  `;
+}
+
+// ─────────────── SUB-VIEW: Calendario ─────────────────
+
+function renderSubCalendario(coach, agg) {
+  const data = filterByCoachAndPeriod(coach, agg)
+    .filter(c => c.dataCheckup && inRange(c.dataCheckup, agg.from, agg.to));
+  const vendite = venditeDaCheckup(coach).filter(v => inRange(v.dataVendita, agg.from, agg.to));
+
+  // Raggruppa per data
+  const byDay = {};
+  data.forEach(c => {
+    (byDay[c.dataCheckup] = byDay[c.dataCheckup] || { checkup: [], vendite: [] }).checkup.push(c);
+  });
+  vendite.forEach(v => {
+    (byDay[v.dataVendita] = byDay[v.dataVendita] || { checkup: [], vendite: [] }).vendite.push(v);
+  });
+
+  // Determina range calendario: usa agg.from → agg.to, capping a 42 giorni (6 settimane)
+  const start = new Date(agg.from);
+  const end = new Date(agg.to);
+  const days = Math.min(42, Math.max(7, Math.round((end - start) / 86400000) + 1));
+  const cal = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(start.getTime() + i * 86400000);
+    const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    cal.push({ iso, d, info: byDay[iso] || null });
+  }
+  const dowShort = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+
+  // Head giorni della settimana (parte da lunedì)
+  const padStart = (cal[0].d.getDay() + 6) % 7; // 0 = Mon
+  const grid = Array(padStart).fill(null).concat(cal);
+  while (grid.length % 7 !== 0) grid.push(null);
+
+  return `
+    <section>
+      <div class="section-label">CALENDARIO</div>
+      <div class="section-title">Agenda ${coach}</div>
+      <div class="section-sub">Check-up e vendite nel periodo selezionato</div>
+
+      <div class="cal-legend">
+        <span class="cal-dot cal-dot-cu"></span> Check-up
+        <span class="cal-dot cal-dot-vd"></span> Vendita
+      </div>
+
+      <div class="cal-grid">
+        ${dowShort.map(d => `<div class="cal-dow">${d}</div>`).join('')}
+        ${grid.map(cell => {
+          if (!cell) return `<div class="cal-cell cal-empty"></div>`;
+          const dayNum = cell.d.getDate();
+          const info = cell.info;
+          const nCU = info ? info.checkup.length : 0;
+          const nVD = info ? info.vendite.length : 0;
+          const totImp = info ? info.vendite.reduce((s,v) => s + v.importo, 0) : 0;
+          const items = info ? [
+            ...info.checkup.slice(0, 2).map(c => `<div class="cal-item cal-item-cu" title="${esc(c.nome)} ${esc(c.cognome)} · ${esc(c.checkupStato)||'—'}">${esc(c.nome)} ${(esc(c.cognome)||'').slice(0,1)}.</div>`),
+            ...info.vendite.slice(0, 2).map(v => `<div class="cal-item cal-item-vd" title="${esc(v.nome)} ${esc(v.cognome)} · €${fmtNum(v.importo)}">💰 ${esc(v.nome)}</div>`)
+          ].join('') : '';
+          const more = info ? (nCU + nVD) - Math.min(2, nCU) - Math.min(2, nVD) : 0;
+          return `<div class="cal-cell ${info ? 'cal-has' : ''}">
+            <div class="cal-dnum">${dayNum}</div>
+            ${items}
+            ${more > 0 ? `<div class="cal-more">+${more}</div>` : ''}
+            ${totImp > 0 ? `<div class="cal-tot">${fmtEur(totImp)}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </section>
+  `;
+}
+
+// ─────────────── SUB-VIEW: Vendite ─────────────────
+
+function renderSubVendite(coach, agg) {
+  const rows = venditeDaCheckup(coach)
+    .filter(v => inRange(v.dataVendita, agg.from, agg.to))
+    .sort((a, b) => (b.dataVendita || '').localeCompare(a.dataVendita || ''));
+  const totFatt = rows.reduce((s, v) => s + v.importo, 0);
+  const totInc = rows.reduce((s, v) => s + ((v.rateIncassate || 0) * (v.nRate ? v.importo / v.nRate : v.importo)), 0);
+
+  return `
+    <section>
+      <div class="section-label purple">VENDITE</div>
+      <div class="section-title">Vendite nel periodo</div>
+      <div class="section-sub">${rows.length} vendite · fatturato ${fmtEur(totFatt)}</div>
+
+      <div class="prodotti-card" style="margin-top:12px">
+        ${rows.length === 0 ? emptyBox('Nessuna vendita nel periodo') : `
+        <table class="data-table">
+          <thead><tr>
+            <th>Data</th><th>Cliente</th><th>Prodotto</th><th>Funnel</th><th>Modalità</th><th>Rate</th><th style="text-align:right">Importo</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(v => `<tr>
+              <td>${fmtDate(v.dataVendita)}</td>
+              <td><b>${esc(v.nome)} ${esc(v.cognome)}</b></td>
+              <td>${esc(v.prodotto)}</td>
+              <td>${esc(v.funnel)}</td>
+              <td>${esc(v.modalita) || '—'}</td>
+              <td>${v.rateIncassate || 0}/${v.nRate || '—'}</td>
+              <td style="text-align:right;font-weight:600;color:var(--accent-emerald)">${fmtEur(v.importo)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`}
+      </div>
+    </section>
+  `;
+}
+
+// ─────────────── SUB-VIEW: Da pagare ─────────────────
+
+function renderSubDaPagare(coach, agg) {
+  const vend = venditeDaCheckup(coach).filter(v => inRange(v.dataVendita, agg.from, agg.to));
+  const rows = vend.filter(v => (v.nRate > 0) && ((v.rateIncassate || 0) < v.nRate));
+  const totResiduo = rows.reduce((s, v) => s + (v.importo * ((v.nRate - (v.rateIncassate || 0)) / v.nRate)), 0);
+
+  return `
+    <section>
+      <div class="section-label">DA PAGARE</div>
+      <div class="section-title">Vendite con rate residue</div>
+      <div class="section-sub">${rows.length} clienti · residuo stimato ${fmtEur(totResiduo)}</div>
+
+      <div class="prodotti-card" style="margin-top:12px">
+        ${rows.length === 0 ? emptyBox('Nessuna rata residua nel periodo') : `
+        <table class="data-table">
+          <thead><tr>
+            <th>Data vendita</th><th>Cliente</th><th>Prodotto</th><th>Rate</th><th style="text-align:right">Residuo</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(v => {
+              const res = v.importo * ((v.nRate - (v.rateIncassate || 0)) / v.nRate);
+              return `<tr>
+                <td>${fmtDate(v.dataVendita)}</td>
+                <td><b>${esc(v.nome)} ${esc(v.cognome)}</b></td>
+                <td>${esc(v.prodotto)}</td>
+                <td>${v.rateIncassate || 0}/${v.nRate}</td>
+                <td style="text-align:right;font-weight:600;color:#d97706">${fmtEur(res)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>`}
+      </div>
+    </section>
+  `;
+}
+
+// ─────────────── SUB-VIEW: Registrazioni ─────────────────
+
+function renderSubRegistrazioni(coach, agg) {
+  return `
+    <section>
+      <div class="section-label">REGISTRAZIONI</div>
+      <div class="section-title">Registrazioni check-up</div>
+      <div class="section-sub">Link alle registrazioni Meet / Zoom</div>
+      <div class="prodotti-card" style="margin-top:12px">
+        ${emptyBox('Funzione in arrivo — qui apparirà la lista registrazioni collegate ai check-up del venditore')}
+      </div>
+    </section>
+  `;
+}
+
+// ─────────────── Helpers UI ─────────────────
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function emptyBox(msg) {
+  return `<div style="text-align:center;padding:32px;color:var(--text-muted)">${esc(msg)}</div>`;
+}
+
+function statoChip(stato, venduto) {
+  const s = String(stato || '').trim();
+  if (!s && !venduto) return `<span class="chip chip-grey">—</span>`;
+  if (venduto) return `<span class="chip chip-green">Venduto</span>`;
+  const up = s.toUpperCase();
+  let cls = 'chip-grey';
+  if (up.includes('FATTO')) cls = 'chip-blue';
+  else if (up.includes('NO SHOW') || up.includes('NO RISP')) cls = 'chip-red';
+  else if (up.includes('SOSPES') || up.includes('GIARDINO')) cls = 'chip-yellow';
+  else if (up.includes('FOLLOW') || up.includes('RICHIAMARE')) cls = 'chip-purple';
+  else if (up.includes('PERSO') || up.includes('NON VENDUTO')) cls = 'chip-red';
+  return `<span class="chip ${cls}">${esc(s)}</span>`;
+}
+
 function bindContent() {
-  // niente da bindare per ora
+  $$('.coach-sub').forEach(b => b.addEventListener('click', () => {
+    state.coachSubView = b.dataset.sub;
+    render();
+  }));
 }
 
 // ─────────────── PERIOD PILLS & OTHER ───────────────
