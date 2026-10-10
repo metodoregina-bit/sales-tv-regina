@@ -379,6 +379,7 @@ function render() {
   if (!state.data) return;
   renderTabs();
   renderContent();
+  updatePeriodChip();
 }
 
 function renderTabs() {
@@ -920,7 +921,7 @@ function renderVenditoreCard(coach) {
       ${renderChiParlaCard(coach)}
       ${renderVotoCard(coach)}
 
-      <button class="btn-analizza" onclick="state.activeTab='coach:${coach}';render()">Analizza ${coach}</button>
+      <button class="btn-analizza" onclick="state.coachSubView='stats';state.activeTab='coach:${coach}';render();window.scrollTo({top:0,behavior:'smooth'})">Analizza ${coach}</button>
     </div>
   `;
 }
@@ -1657,16 +1658,23 @@ function bindContent() {
   }));
 }
 
-// ─────────────── PERIOD PILLS & OTHER ───────────────
+// ─────────────── PERIOD CHIP & OTHER ───────────────
 
-$$('.pill').forEach(b => b.addEventListener('click', () => {
-  $$('.pill').forEach(x => x.classList.remove('active'));
-  b.classList.add('active');
-  state.period = b.dataset.period;
-  render();
-}));
-$('#dateFrom').addEventListener('change', e => { state.dateFrom = e.target.value; state.period = 'custom'; $$('.pill').forEach(x => x.classList.remove('active')); render(); });
-$('#dateTo').addEventListener('change', e => { state.dateTo = e.target.value; state.period = 'custom'; $$('.pill').forEach(x => x.classList.remove('active')); render(); });
+function updatePeriodChip() {
+  const el = $('#periodChipValue');
+  if (!el) return;
+  const sp = sheetPeriod();
+  if (sp) {
+    el.textContent = `${fmtDate(sp.from)} → ${fmtDate(sp.to)}`;
+  } else {
+    el.textContent = '— periodo non disponibile';
+  }
+  const link = $('#periodChipLink');
+  if (link && state.data && state.data.config && state.data.config.sheetUrl) {
+    link.href = state.data.config.sheetUrl;
+  }
+}
+
 $('#refreshBtn').addEventListener('click', async () => { await fetchData(); render(); });
 $('#logoutBtn').addEventListener('click', doLogout);
 

@@ -301,6 +301,34 @@ body {
 }
 .period-range .arrow { color: var(--text-muted); }
 
+/* PERIOD CHIP (readonly) */
+.period-chip {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--card);
+  padding: 10px 18px;
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+}
+.period-chip-ico { font-size: 15px; }
+.period-chip-label {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 11px;
+}
+.period-chip-value { font-weight: 700; color: var(--text); }
+.period-chip-link {
+  margin-left: 6px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+  color: var(--brand);
+  text-decoration: none;
+  font-size: 12px;
+}
+.period-chip-link:hover { text-decoration: underline; }
+
 /* CONTENT */
 .content { display: flex; flex-direction: column; gap: 36px; }
 

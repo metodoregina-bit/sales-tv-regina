@@ -62,19 +62,13 @@
     <!-- TABS -->
     <nav class="tabs" id="tabs"></nav>
 
-    <!-- PERIOD FILTER -->
+    <!-- PERIOD CHIP (read-only — periodo impostato nel foglio) -->
     <div class="period-bar">
-      <div class="period-pills" id="periodPills">
-        <button class="pill" data-period="thisMonth">Questo mese</button>
-        <button class="pill" data-period="thisWeek">Questa settimana</button>
-        <button class="pill" data-period="lastMonth">Mese scorso</button>
-        <button class="pill" data-period="ytd">Quest'anno</button>
-        <button class="pill active" data-period="all">Sempre</button>
-      </div>
-      <div class="period-range">
-        <input type="date" id="dateFrom" />
-        <span class="arrow">→</span>
-        <input type="date" id="dateTo" />
+      <div class="period-chip" id="periodChip">
+        <span class="period-chip-ico">📅</span>
+        <span class="period-chip-label">Periodo</span>
+        <span class="period-chip-value" id="periodChipValue">—</span>
+        <a href="#" id="periodChipLink" class="period-chip-link" target="_blank">modifica nel foglio ↗</a>
       </div>
     </div>
 

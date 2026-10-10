@@ -200,23 +200,22 @@ function parseVendite(g) {
   })).filter(x => x.dataVendita || x.nome);
 }
 
-// Parse Sales TV dashboard (TOTALE o per canale)
+// Parse Sales TV TOTALE (dashboard aggregato)
 // Row 0: DA | <data> | row 1: A | <data> | row 4: TOTALE data | row 5+: coach data
-// Columns indici 0-based: 1=COACH, 2=OBIETTIVO (spesso null in gviz),
-// 3=FATT.PER CASSA, 4=FATT.MESE PREC, 5=FATT.X COMP, 7=IDEAL, 8=OBIETTIVO SETTIMANALE,
-// 9=ROP, 10=OBIETTIVO ROP, 11=PROSPECT ASSEGNATI, 12=CHIAMATI, 13=CHECK-UP,
-// 14=% CHECK-UP, 15=VENDITE, 17=%CONV, 21=SCOSTAMENTO
+// Columns indici 0-based: 1=COACH, 2=OBIETTIVO, 3=FATT.PER CASSA, 4=FATT.MESE PREC,
+// 5=FATT.X COMP, 7=IDEAL, 8=OBIETTIVO SETTIMANALE, 9=ROP, 10=OBIETTIVO ROP,
+// 11=PROSPECT ASSEGNATI, 12=CHIAMATI, 13=CHECK-UP, 14=% CHECK-UP, 15=VENDITE,
+// 17=%CONV, 21=SCOSTAMENTO
 function parseSalesTV(g) {
   if (!g || !g.table || !g.table.rows) return null;
   const rows = g.table.rows;
-
   const dateFrom = gvizDate(cell(rows[0], 2));
   const dateTo = gvizDate(cell(rows[1], 2));
 
   function rowToKpi(row) {
     if (!row) return null;
     const name = str(cell(row, 1));
-    if (!name || /^(coach|totale)$/i.test(name) === false && name !== 'TOTALE' && !row.c) return null;
+    if (!name || /^=/.test(name) || /\|/.test(name)) return null;
     return {
       name,
       obiettivo: num(cell(row, 2)) || 10000,
@@ -242,7 +241,50 @@ function parseSalesTV(g) {
   const coaches = [];
   for (let i = 5; i < rows.length; i++) {
     const k = rowToKpi(rows[i]);
-    if (k && k.name && !/^=/.test(k.name) && !/\|/.test(k.name)) coaches.push(k);
+    if (k && k.name && k.name.toUpperCase() !== 'TOTALE') coaches.push(k);
+  }
+
+  return { dateFrom, dateTo, totale, coaches };
+}
+
+// Parse Sales TV per singolo canale (struttura diversa dal TOTALE)
+// Row 0: DA | row 1: A | row 2: COACH header | row 3: TOTALE | row 4+: coach data
+// Columns: 1=COACH, 3=FATT.MESE PREC, 4=FATT.PER CASSA, 5=PROSPECT ASSEGNATI,
+// 6=CHIAMATI, 7=CHECK-UP, 8=% CHECK-UP, 9=VENDITE, 10=%CONV,
+// 11=€X? 12=€Y? 13=€Z? 14=ROP (1.048€), 15=SCOSTAMENTO (1.397€)
+function parseSalesTVCanale(g) {
+  if (!g || !g.table || !g.table.rows) return null;
+  const rows = g.table.rows;
+  const dateFrom = gvizDate(cell(rows[0], 2));
+  const dateTo = gvizDate(cell(rows[1], 2));
+
+  function rowToKpi(row) {
+    if (!row) return null;
+    const name = str(cell(row, 1));
+    if (!name || /^=/.test(name) || /\|/.test(name) || name.toUpperCase() === 'COACH') return null;
+    return {
+      name,
+      fattMesePrec: num(cell(row, 3)),
+      fattPerCassa: num(cell(row, 4)),
+      prospectAssegnati: num(cell(row, 5)),
+      chiamati: num(cell(row, 6)),
+      checkup: num(cell(row, 7)),
+      pctCheckup: num(cell(row, 8)),
+      vendite: num(cell(row, 9)),
+      pctConv: num(cell(row, 10)),
+      rop: num(cell(row, 14)),
+      scostamento: num(cell(row, 15))
+    };
+  }
+
+  // Scansione: trova la prima riga con name=="TOTALE" e poi successive
+  let totale = null;
+  const coaches = [];
+  for (let i = 0; i < rows.length; i++) {
+    const k = rowToKpi(rows[i]);
+    if (!k) continue;
+    if (k.name.toUpperCase() === 'TOTALE') { totale = k; continue; }
+    if (totale) coaches.push(k);
   }
 
   return { dateFrom, dateTo, totale, coaches };
@@ -306,11 +348,11 @@ app.get('/api/data', async (req, res) => {
     const salesTV = {
       totale: rStvTot ? parseSalesTV(rStvTot) : null,
       canali: {
-        "Queen Challenge": rStvQC   ? parseSalesTV(rStvQC)   : null,
-        "Quiz":            rStvQuiz ? parseSalesTV(rStvQuiz) : null,
-        "Sales":           rStvSales? parseSalesTV(rStvSales): null,
-        "Assistenza":      rStvAss  ? parseSalesTV(rStvAss)  : null,
-        "Manuale":         rStvMan  ? parseSalesTV(rStvMan)  : null
+        "Queen Challenge": rStvQC   ? parseSalesTVCanale(rStvQC)   : null,
+        "Quiz":            rStvQuiz ? parseSalesTVCanale(rStvQuiz) : null,
+        "Sales":           rStvSales? parseSalesTVCanale(rStvSales): null,
+        "Assistenza":      rStvAss  ? parseSalesTVCanale(rStvAss)  : null,
+        "Manuale":         rStvMan  ? parseSalesTVCanale(rStvMan)  : null
       }
     };
 
