@@ -260,6 +260,26 @@ function trendChip(pct) {
   return `<span class="trend-chip ${cls}">${arrow} ${Math.abs(pct).toFixed(0)}%</span>`;
 }
 
+// Proietta il fatturato a fine mese basandosi sul ritmo del periodo corrente.
+// Se il periodo copre tutto il mese corrente, usa i giorni passati; altrimenti
+// prende la lunghezza del periodo richiesto come proxy.
+function proiezioneFineMese(fatt, fromISO, toISO) {
+  if (!fatt || !toISO) return 0;
+  const now = new Date();
+  const [ty, tm, td] = toISO.split('-').map(Number);
+  const [fy, fm, fd] = (fromISO || toISO).split('-').map(Number);
+  const toDate = new Date(ty, tm - 1, td);
+  const fromDate = new Date(fy, fm - 1, fd);
+  // Fine del mese del periodo "A"
+  const endOfMonth = new Date(ty, tm, 0);
+  // Giorni "coperti" dal periodo (max fino a oggi se la fine è nel futuro)
+  const effectiveEnd = toDate > now ? now : toDate;
+  const dayDiff = Math.max(1, Math.round((effectiveEnd - fromDate) / 86400000) + 1);
+  // Giorni totali dal from alla fine del mese
+  const totalDays = Math.max(dayDiff, Math.round((endOfMonth - fromDate) / 86400000) + 1);
+  return (fatt / dayDiff) * totalDays;
+}
+
 // ─────────────── DONUT SVG ───────────────
 
 function donutSVG(pct, size = 180) {
@@ -339,8 +359,9 @@ function renderHome() {
       <div class="section-sub">${teamNames || 'Team vendita'}</div>
       <div class="section-legend">
         <span><span class="dot" style="background:#eab308"></span>ROP (resa per contatto)</span>
+        <span><span class="dot" style="background:#06b6d4"></span>ROCU (resa per check-up)</span>
         <span><span class="dot" style="background:#10b981"></span>Fatturato e vendite</span>
-        <span><span class="dot" style="background:#06b6d4"></span>Incassato</span>
+        <span><span class="dot" style="background:#2dd4bf"></span>Incassato</span>
         <span><span class="dot" style="background:#f97316"></span>Contatti</span>
         <span><span class="dot" style="background:#a855f7"></span>Check-up</span>
       </div>
@@ -359,7 +380,20 @@ function renderHome() {
             <div class="info-label">Mancano</div>
             <div class="info-value">${fmtEur(mancano)}</div>
             <div class="info-sub">Circa <b>${stimaVendite} vendite</b> entro il ${dayEnd} ${monthName}</div>
-            <div class="info-hint">dove si arriva oggi a ritmo costante</div>
+            ${(() => {
+              const proj = proiezioneFineMese(agg.fatt, agg.from, agg.to);
+              if (!proj) return '<div class="info-hint">dove si arriva oggi a ritmo costante</div>';
+              const pctProj = totObiettivo ? (proj / totObiettivo) * 100 : 0;
+              const good = pctProj >= 100;
+              return `
+                <div class="se-continua-box ${good ? 'ok' : 'warn'}" style="margin-top:12px">
+                  <div class="se-continua-label">Se continuate così</div>
+                  <div class="se-continua-value">${fmtEur(proj)}</div>
+                  <div class="se-continua-sub">a fine mese · <b>${fmtPctInt(pctProj)}</b> dell'obiettivo</div>
+                </div>
+                <div class="info-hint" style="margin-top:10px">dove si arriva oggi a ritmo costante</div>
+              `;
+            })()}
           </div>
         </div>
 
@@ -392,6 +426,32 @@ function renderHome() {
             <div class="roc-label">ROC</div>
             <div class="roc-value">${fmtEur(agg.roc)}</div>
             <div class="roc-sub">per chiamato</div>
+          </div>
+          <!-- ROCU · Resa per check-up (team) -->
+          <div class="rocu-section">
+            <div class="rocu-header">ROCU · Resa per check-up</div>
+            <div class="rocu-bars">
+              ${coaches.map((c, i) => {
+                const a = aggregateFor(c);
+                const rocu = a.checkup ? Math.round(a.fatt / a.checkup) : 0;
+                const rocuMax = Math.max(1500, ...coaches.map(cc => {
+                  const aa = aggregateFor(cc);
+                  return aa.checkup ? aa.fatt / aa.checkup : 0;
+                }));
+                const w = Math.min(100, (rocu / rocuMax) * 100);
+                const color = i === 0 ? '#06b6d4' : '#f97316';
+                return `
+                  <div class="rop-bar-row">
+                    <div class="rop-bar-name"><span class="dot" style="background:${color}"></span>${c}</div>
+                    <div class="rop-bar-track">
+                      <div class="rop-bar-fill" style="width:${w}%;background:linear-gradient(90deg,#67e8f9,#06b6d4)"></div>
+                    </div>
+                    <div class="rop-bar-value" style="color:#67e8f9">${fmtEur(rocu)}</div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+            <div class="rop-note" style="margin-top:4px">Il fatturato di ognuno diviso i suoi check-up fatti nel periodo.</div>
           </div>
         </div>
       </div>
@@ -726,6 +786,20 @@ function renderVenditoreCard(coach) {
         Per l'obiettivo mancano <b>${fmtEur(mancano)}</b>, circa <b>${stimaVendite} vendite</b>
       </div>
 
+      ${(() => {
+        const proj = proiezioneFineMese(agg.fatt, agg.from, agg.to);
+        if (!proj) return '';
+        const pctProj = OBIETTIVO_COACH ? (proj / OBIETTIVO_COACH) * 100 : 0;
+        const good = pctProj >= 100;
+        return `
+          <div class="se-continua-box ${good ? 'ok' : 'warn'}">
+            <div class="se-continua-label">Se continua così</div>
+            <div class="se-continua-value">${fmtEur(proj)}</div>
+            <div class="se-continua-sub">a fine mese · <b>${fmtPctInt(pctProj)}</b> dell'obiettivo</div>
+          </div>
+        `;
+      })()}
+
       <!-- ROP dark card mini -->
       <div style="background:radial-gradient(ellipse at top right,#1e293b 0%,#0f172a 60%);border-radius:14px;padding:18px 22px;color:white;box-shadow:0 8px 20px rgba(15,23,42,0.15);position:relative;overflow:hidden;">
         <div style="font-size:10px;letter-spacing:1.5px;color:rgba(255,255,255,0.55);text-transform:uppercase;font-weight:600;margin-bottom:4px">ROP · Resa per contatto</div>
@@ -741,6 +815,17 @@ function renderVenditoreCard(coach) {
           <div style="font-size:11px;color:rgba(255,255,255,0.6);white-space:nowrap">ROC ${fmtEur(agg.roc)}</div>
         </div>
         <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:6px">per contatto · ${agg.prospect} contatti · obiettivo ${fmtEur(agg.ropTarget)}</div>
+        <!-- ROCU · Resa per check-up -->
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08)">
+          <div style="font-size:10px;letter-spacing:1.5px;color:rgba(255,255,255,0.55);text-transform:uppercase;font-weight:600;margin-bottom:4px">ROCU · Resa per check-up</div>
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="font-size:24px;font-weight:800;color:#06b6d4">${fmtEur(agg.checkup ? Math.round(agg.fatt / agg.checkup) : 0)}</div>
+            <div style="flex:1;height:5px;background:rgba(255,255,255,0.08);border-radius:999px;overflow:hidden">
+              <div style="height:100%;width:${Math.min(100,(agg.checkup ? (agg.fatt/agg.checkup)/1500 : 0)*100)}%;background:linear-gradient(90deg,#67e8f9 0%,#06b6d4 100%);border-radius:999px"></div>
+            </div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.6);white-space:nowrap">per check-up · ${agg.checkup}</div>
+          </div>
+        </div>
       </div>
 
       ${renderNonChiusiCard(coach)}

@@ -559,6 +559,60 @@ body {
 .mini-metric.cyan .v { color: var(--accent-cyan); }
 .mini-metric.purple .v { color: var(--accent-purple); }
 
+/* SE CONTINUA COSÌ box */
+.se-continua-box {
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid;
+}
+.se-continua-box.ok {
+  background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.04) 100%);
+  border-color: rgba(16,185,129,0.25);
+}
+.se-continua-box.warn {
+  background: linear-gradient(135deg, rgba(234,179,8,0.08) 0%, rgba(234,179,8,0.04) 100%);
+  border-color: rgba(234,179,8,0.25);
+}
+.se-continua-label {
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.se-continua-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--brand);
+  line-height: 1.1;
+}
+.se-continua-box.ok .se-continua-value { color: var(--accent-emerald); }
+.se-continua-box.warn .se-continua-value { color: #d97706; }
+.se-continua-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.se-continua-sub b { color: var(--text); }
+
+/* ROCU section (team ROP card) */
+.rocu-section {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.rocu-header {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: rgba(255,255,255,0.55);
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.rocu-bars { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
+
 .venditore-mancano {
   background: var(--card-alt);
   border: 1px solid var(--border);
