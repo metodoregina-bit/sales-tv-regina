@@ -325,7 +325,8 @@ function renderTabs() {
   const coaches = activeCoaches();
   const tabs = [
     { id: 'home', label: '🏠 Home' },
-    ...coaches.map(c => ({ id: 'coach:' + c, label: c, badge: null, avatar: c[0].toUpperCase() }))
+    ...coaches.map(c => ({ id: 'coach:' + c, label: c, badge: null, avatar: c[0].toUpperCase() })),
+    { id: 'copy', label: '📝 Copy TV' }
   ];
   $('#tabs').innerHTML = tabs.map(t => `
     <button class="tab ${state.activeTab === t.id ? 'active' : ''}" data-tab="${t.id}">
@@ -343,8 +344,12 @@ function renderTabs() {
 
 function renderContent() {
   const isHome = state.activeTab === 'home';
-  const coach = isHome ? null : state.activeTab.replace('coach:', '');
-  const html = isHome ? renderHome() : renderCoachDetail(coach);
+  const isCopy = state.activeTab === 'copy';
+  const coach = isHome || isCopy ? null : state.activeTab.replace('coach:', '');
+  let html;
+  if (isHome) html = renderHome();
+  else if (isCopy) html = renderCopyTV();
+  else html = renderCoachDetail(coach);
   $('#viewContent').innerHTML = html;
   bindContent();
 }
@@ -1462,6 +1467,124 @@ function statoChip(stato, venduto) {
   else if (up.includes('FOLLOW') || up.includes('RICHIAMARE')) cls = 'chip-purple';
   else if (up.includes('PERSO') || up.includes('NON VENDUTO')) cls = 'chip-red';
   return `<span class="chip ${cls}">${esc(s)}</span>`;
+}
+
+// ─────────────── COPY TV ─────────────────
+
+const COPY_BLOCKS = [
+  { id: 'obiezioni',    icon: '🛑', title: 'Obiezioni più frequenti',       sub: 'Cosa dicono per non comprare o non fissare',           color: 'red' },
+  { id: 'obiettivi',    icon: '🎯', title: 'Obiettivi più frequenti',       sub: 'Cosa vogliono ottenere',                                color: 'green' },
+  { id: 'perche-num',   icon: '📱', title: 'Perché hanno lasciato il numero', sub: 'Il motivo che li ha portati a chiedere la chiamata',  color: 'blue' },
+  { id: 'perche-no',    icon: '🧱', title: 'Perché alla fine non comprano', sub: 'Il motivo vero, oltre le parole di circostanza',       color: 'rose' },
+  { id: 'difficolta',   icon: '🧩', title: 'Difficoltà operative',          sub: 'Dove si bloccano nel quotidiano',                       color: 'orange' },
+  { id: 'cercano',      icon: '🔍', title: 'Cosa cercano',                  sub: 'Cosa si aspettano da un metodo',                        color: 'green' },
+  { id: 'paure',        icon: '😨', title: 'Paure',                         sub: 'Timori sull’università, sul futuro, sul metodo',   color: 'purple' },
+  { id: 'star-male',    icon: '💔', title: 'Cosa li fa stare male',         sub: 'Il dolore di oggi, con le loro parole',                 color: 'red' },
+  { id: 'sogni',        icon: '🌙', title: 'I loro sogni',                  sub: 'Oltre gli esami: cosa vogliono dalla vita',             color: 'purple' },
+  { id: 'piace',        icon: '💡', title: 'Cosa gli piace del metodo',     sub: 'Perché Metodo li ha convinti o incuriositi',            color: 'green' }
+];
+
+function renderCopyTV() {
+  const coaches = (state.data && state.data.config && state.data.config.coaches) || [];
+  const today = new Date().toLocaleDateString('it-IT');
+
+  return `
+    <section>
+      <div class="copy-hero">
+        <div class="copy-hero-label">📝 COPY TV</div>
+        <div class="copy-hero-main">
+          <div class="copy-hero-num">0</div>
+          <div class="copy-hero-text">
+            <b>chiamate ascoltate</b> · quello che dicono i clienti, in classifica
+            <div class="copy-hero-sub">Nessuna analisi disponibile · in attesa di collegare le trascrizioni</div>
+          </div>
+          <div class="copy-hero-actions">
+            <button class="copy-btn copy-btn-primary" disabled>Scarica per il copywriter (Word)</button>
+            <button class="copy-btn copy-btn-ghost" disabled>Testo semplice</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="copy-filters">
+        <div class="copy-filters-row">
+          <span class="copy-filters-label">RIFALLA CON</span>
+          <div class="copy-filter-group">
+            <button class="copy-pill active" disabled>Tutte le chiamate</button>
+            <button class="copy-pill" disabled>Ultimi 12 mesi</button>
+            <button class="copy-pill" disabled>Ultimi 6 mesi</button>
+            <button class="copy-pill" disabled>Ultimi 3 mesi</button>
+          </div>
+          <div class="copy-filter-group">
+            <button class="copy-pill active" disabled>Tutti</button>
+            ${coaches.map(c => `<button class="copy-pill" disabled>${esc(c)}</button>`).join('')}
+          </div>
+          <div class="copy-filter-group">
+            <button class="copy-pill active" disabled>Prenotazioni e check-up</button>
+            <button class="copy-pill" disabled>Solo prenotazioni</button>
+            <button class="copy-pill" disabled>Solo check-up</button>
+          </div>
+        </div>
+        <div class="copy-filters-cta">
+          <button class="copy-btn copy-btn-dark" disabled>Rifai le classifiche</button>
+          <span class="copy-hint">In arrivo — richiede trascrizioni delle chiamate collegate</span>
+        </div>
+      </div>
+
+      <div class="copy-card copy-cliente">
+        <div class="copy-card-label red">🙋 IL CLIENTE TIPO</div>
+        <div class="copy-empty-para">
+          Qui apparirà il profilo del cliente tipo — una descrizione sintetica basata sull'analisi
+          delle chiamate (chi è, cosa fa, perché ha chiesto il check-up, cosa lo frustra, cosa cerca).
+        </div>
+      </div>
+
+      <div class="copy-grid">
+        ${COPY_BLOCKS.map(b => renderCopyBlock(b)).join('')}
+      </div>
+
+      <div class="copy-card copy-parole">
+        <div class="copy-block-head">
+          <div class="copy-block-ico">💬</div>
+          <div>
+            <div class="copy-block-title">Le loro parole, pari pari</div>
+            <div class="copy-block-sub">Frasi dette davvero dai clienti, buone per annunci e pagine</div>
+          </div>
+        </div>
+        <div class="copy-quotes-grid">
+          ${Array.from({ length: 9 }).map(() => `<div class="copy-quote-empty">«…»</div>`).join('')}
+        </div>
+      </div>
+
+      <div class="copy-footer">Archivio non ancora generato · oggi è ${today}</div>
+    </section>
+  `;
+}
+
+function renderCopyBlock(b) {
+  return `
+    <div class="copy-card copy-block copy-${b.color}">
+      <div class="copy-block-head">
+        <div class="copy-block-ico">${b.icon}</div>
+        <div>
+          <div class="copy-block-title">${b.title}</div>
+          <div class="copy-block-sub">${b.sub}</div>
+        </div>
+      </div>
+      <div class="copy-block-items">
+        ${[1,2,3,4].map(n => `
+          <div class="copy-item">
+            <div class="copy-item-row">
+              <span class="copy-item-num">${n}</span>
+              <span class="copy-item-title">—</span>
+              <span class="copy-item-count">0 su 0</span>
+            </div>
+            <div class="copy-item-bar"><div class="copy-item-bar-fill" style="width:0%"></div></div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="copy-block-empty">Nessuna analisi disponibile</div>
+    </div>
+  `;
 }
 
 function bindContent() {
