@@ -1264,12 +1264,34 @@ function renderSubList(coach, agg, kind) {
 // ─────────────── SUB-VIEW: Calendario ─────────────────
 
 function renderSubCalendario(coach, agg) {
-  const data = filterByCoachAndPeriod(coach, agg)
-    .filter(c => c.dataCheckup && inRange(c.dataCheckup, agg.from, agg.to));
-  const vendite = venditeDaCheckup(coach).filter(v => inRange(v.dataVendita, agg.from, agg.to));
+  // Determina range calendario:
+  // - Se range "stretto" (<= 42gg) usa agg.from → agg.to
+  // - Altrimenti mostra il mese corrente (vista agenda standard)
+  const fromD = new Date(agg.from);
+  const toD = new Date(agg.to);
+  const spanDays = Math.round((toD - fromD) / 86400000) + 1;
+  let start, days, calLabel;
+  if (spanDays <= 45) {
+    start = fromD;
+    days = Math.max(7, spanDays);
+    calLabel = `${fmtDate(agg.from)} → ${fmtDate(agg.to)}`;
+  } else {
+    const today = new Date();
+    start = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    days = lastDay;
+    calLabel = today.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+  }
+  const startIso = `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`;
+  const endD = new Date(start.getTime() + (days - 1) * 86400000);
+  const endIso = `${endD.getFullYear()}-${String(endD.getMonth()+1).padStart(2,'0')}-${String(endD.getDate()).padStart(2,'0')}`;
 
-  // Raggruppa per data
+  // Raggruppa per data (filtra sul range calendario, non sul periodo)
   const byDay = {};
+  const data = filterByCoachAndPeriod(coach, agg)
+    .filter(c => c.dataCheckup && c.dataCheckup >= startIso && c.dataCheckup <= endIso);
+  const vendite = venditeDaCheckup(coach)
+    .filter(v => v.dataVendita && v.dataVendita >= startIso && v.dataVendita <= endIso);
   data.forEach(c => {
     (byDay[c.dataCheckup] = byDay[c.dataCheckup] || { checkup: [], vendite: [] }).checkup.push(c);
   });
@@ -1277,10 +1299,6 @@ function renderSubCalendario(coach, agg) {
     (byDay[v.dataVendita] = byDay[v.dataVendita] || { checkup: [], vendite: [] }).vendite.push(v);
   });
 
-  // Determina range calendario: usa agg.from → agg.to, capping a 42 giorni (6 settimane)
-  const start = new Date(agg.from);
-  const end = new Date(agg.to);
-  const days = Math.min(42, Math.max(7, Math.round((end - start) / 86400000) + 1));
   const cal = [];
   for (let i = 0; i < days; i++) {
     const d = new Date(start.getTime() + i * 86400000);
@@ -1298,7 +1316,7 @@ function renderSubCalendario(coach, agg) {
     <section>
       <div class="section-label">CALENDARIO</div>
       <div class="section-title">Agenda ${coach}</div>
-      <div class="section-sub">Check-up e vendite nel periodo selezionato</div>
+      <div class="section-sub">Check-up e vendite · ${calLabel}</div>
 
       <div class="cal-legend">
         <span class="cal-dot cal-dot-cu"></span> Check-up
