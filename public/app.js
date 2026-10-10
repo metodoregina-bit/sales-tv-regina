@@ -15,12 +15,13 @@ const CHANNEL_META = {
 
 const state = {
   data: null,
-  period: "all",
+  period: "sheet", // sheet = usa il periodo del foglio, altrimenti sincronizza
   dateFrom: null,
   dateTo: null,
   activeTab: 'home',
   coachSubView: 'stats',
-  currentUser: null
+  currentUser: null,
+  periodBusy: false
 };
 
 const COACH_SUBVIEWS = [
@@ -164,8 +165,63 @@ function computePeriodRange() {
     case 'ytd': return [`${new Date().getFullYear()}-01-01`, today];
     case 'all': return ['1970-01-01', '9999-12-31'];
     case 'custom': return [state.dateFrom || '1970-01-01', state.dateTo || '9999-12-31'];
+    case 'sheet': {
+      const sp = sheetPeriod();
+      return sp ? [sp.from, sp.to] : [firstOfMonthISO(0), lastOfMonthISO(0)];
+    }
     default: return [firstOfMonthISO(0), lastOfMonthISO(0)];
   }
+}
+
+// Calcola [from, to] in base al pill cliccato (indipendente da state.period)
+function periodFromPill(id) {
+  const today = todayISO();
+  switch (id) {
+    case 'thisMonth': return [firstOfMonthISO(0), lastOfMonthISO(0)];
+    case 'thisWeek':  return [firstOfWeekISO(0), today];
+    case 'lastMonth': return [firstOfMonthISO(-1), lastOfMonthISO(-1)];
+    case 'ytd':      return [`${new Date().getFullYear()}-01-01`, today];
+    default:         return null;
+  }
+}
+
+// Invia POST al backend per modificare le celle DA/A del foglio, poi re-fetch dati
+async function applyPeriodToSheet(from, to) {
+  if (state.periodBusy) return;
+  state.periodBusy = true;
+  showPeriodStatus('⏳ Aggiornando il foglio…', 'busy');
+  try {
+    const r = await fetch('/api/set-period', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to })
+    });
+    const j = await r.json();
+    if (!r.ok || !j.ok) {
+      showPeriodStatus('⚠️ ' + (j.error || 'Errore aggiornando il foglio'), 'error');
+      state.periodBusy = false;
+      return false;
+    }
+    await fetchData();
+    render();
+    showPeriodStatus('✓ Periodo aggiornato', 'ok');
+    setTimeout(() => showPeriodStatus('', 'hide'), 2500);
+    state.periodBusy = false;
+    return true;
+  } catch (e) {
+    showPeriodStatus('⚠️ ' + e.message, 'error');
+    state.periodBusy = false;
+    return false;
+  }
+}
+
+function showPeriodStatus(msg, kind) {
+  const el = document.getElementById('periodStatus');
+  if (!el) return;
+  if (kind === 'hide' || !msg) { el.hidden = true; el.textContent = ''; return; }
+  el.hidden = false;
+  el.textContent = msg;
+  el.className = 'period-status ' + (kind || '');
 }
 function inRange(dateStr, from, to) {
   // Modalita "sempre": accetta anche righe senza data (per non perdere record con date malformate)
@@ -1075,9 +1131,11 @@ function renderCanali() {
 }
 
 function renderProdotti() {
-  const [from, to] = computePeriodRange();
-  const allVend = venditeDaCheckup(null);
-  const vs = allVend.filter(v => inRange(v.dataVendita, from, to));
+  // Sorgente: foglio "Vendite Regina" (fonte autorevole), filtrato per periodo del foglio
+  const sp = sheetPeriod();
+  const [from, to] = sp ? [sp.from, sp.to] : computePeriodRange();
+  const all = (state.data && state.data.vendite) || [];
+  const vs = all.filter(v => v.dataVendita && v.prodotto && inRange(v.dataVendita, from, to) && v.importo > 0);
   const byProd = {};
   vs.forEach(v => {
     const p = v.prodotto || '—';
@@ -1091,7 +1149,7 @@ function renderProdotti() {
   return `<div class="prodotti-list">${
     rows.map(([name, v]) => `
       <div class="prodotto-row">
-        <div class="prodotto-name">${name}</div>
+        <div class="prodotto-name">${esc(name)}</div>
         <div class="prodotto-bar">
           <div class="prodotto-bar-paid" style="width:${(v.fatt / max) * 100}%"></div>
         </div>
@@ -1663,22 +1721,50 @@ function bindContent() {
   }));
 }
 
-// ─────────────── PERIOD CHIP & OTHER ───────────────
+// ─────────────── PERIOD PILLS / DATE PICKERS ───────────────
 
 function updatePeriodChip() {
-  const el = $('#periodChipValue');
-  if (!el) return;
+  // Sincronizza i date picker con il periodo del foglio
   const sp = sheetPeriod();
   if (sp) {
-    el.textContent = `${fmtDate(sp.from)} → ${fmtDate(sp.to)}`;
-  } else {
-    el.textContent = '— periodo non disponibile';
-  }
-  const link = $('#periodChipLink');
-  if (link && state.data && state.data.config && state.data.config.sheetUrl) {
-    link.href = state.data.config.sheetUrl;
+    const df = $('#dateFrom'), dt = $('#dateTo');
+    if (df && !df.value) df.value = sp.from;
+    if (dt && !dt.value) dt.value = sp.to;
   }
 }
+
+$$('.pill').forEach(b => b.addEventListener('click', async () => {
+  if (state.periodBusy) return;
+  const id = b.dataset.period;
+  if (id === 'sheet') {
+    $$('.pill').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    await fetchData();
+    render();
+    return;
+  }
+  const range = periodFromPill(id);
+  if (!range) return;
+  $$('.pill').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  // Allinea date picker e invia al foglio
+  $('#dateFrom').value = range[0];
+  $('#dateTo').value = range[1];
+  await applyPeriodToSheet(range[0], range[1]);
+}));
+
+$('#dateFrom').addEventListener('change', async (e) => {
+  const from = e.target.value, to = $('#dateTo').value;
+  if (!from || !to) return;
+  $$('.pill').forEach(x => x.classList.remove('active'));
+  await applyPeriodToSheet(from, to);
+});
+$('#dateTo').addEventListener('change', async (e) => {
+  const to = e.target.value, from = $('#dateFrom').value;
+  if (!from || !to) return;
+  $$('.pill').forEach(x => x.classList.remove('active'));
+  await applyPeriodToSheet(from, to);
+});
 
 $('#refreshBtn').addEventListener('click', async () => { await fetchData(); render(); });
 $('#logoutBtn').addEventListener('click', doLogout);

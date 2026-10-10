@@ -7,6 +7,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const SHEET_ID = process.env.SHEET_ID || "1rMgXtcmbr-B5byLr9ZC3o54W2BUm8v8My8ZVEsrzTgg";
 
+// URL del Web App Apps Script (POST con {from, to} per modificare celle DA/A nei fogli Sales TV)
+// Da configurare in Railway dopo aver deployato scripts/set-period.gs
+const SHEETS_WRITE_URL = process.env.SHEETS_WRITE_URL || "";
+
 // Tab names (regex-based lookup lato client-side non serve: qui i nomi esatti con emoji)
 const TAB_VENDITE = process.env.TAB_VENDITE || "💅Vendite Regina";
 const TAB_QC = process.env.TAB_QC || "💅Check-up QC prenotati";
@@ -386,6 +390,66 @@ app.get('/api/data', async (req, res) => {
         coaches
       }
     });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ────────────────── SET PERIOD (scrive celle DA/A nei fogli Sales TV) ──────────────────
+
+function postJson(url, body) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const data = JSON.stringify(body);
+    const opts = {
+      method: 'POST',
+      hostname: u.hostname,
+      path: u.pathname + u.search,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(data)
+      }
+    };
+    const req = https.request(opts, (r) => {
+      // Apps Script può fare redirect: segui
+      if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location) {
+        return https.get(r.headers.location, (r2) => {
+          let d = '';
+          r2.on('data', c => d += c);
+          r2.on('end', () => resolve({ status: r2.statusCode, body: d }));
+        }).on('error', reject);
+      }
+      let d = '';
+      r.on('data', c => d += c);
+      r.on('end', () => resolve({ status: r.statusCode, body: d }));
+    });
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
+}
+
+app.post('/api/set-period', async (req, res) => {
+  if (!isAuthed(req)) return res.status(401).json({ ok: false, error: "Non autenticato" });
+  const from = String(req.body.from || "");
+  const to = String(req.body.to || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+    return res.status(400).json({ ok: false, error: "Date non valide (YYYY-MM-DD)" });
+  }
+  if (!SHEETS_WRITE_URL) {
+    return res.status(503).json({
+      ok: false,
+      error: "SHEETS_WRITE_URL non configurato. Deploya scripts/set-period.gs come Web App e metti l'URL nelle env Railway."
+    });
+  }
+  try {
+    const result = await postJson(SHEETS_WRITE_URL, { from, to, sheetId: SHEET_ID });
+    if (result.status >= 400) {
+      return res.status(502).json({ ok: false, error: `Apps Script HTTP ${result.status}: ${result.body.slice(0, 200)}` });
+    }
+    // Attesa breve per permettere al foglio di ricalcolare le formule
+    await new Promise(r => setTimeout(r, 1500));
+    res.json({ ok: true, from, to, appsScript: result.body.slice(0, 300) });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
