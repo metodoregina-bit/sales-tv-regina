@@ -1036,31 +1036,36 @@ function renderVelocitaCard(coach) {
 
 function renderCanali() {
   const funnels = state.data.config.funnels;
-  return funnels.map(fn => {
-    const [from, to] = computePeriodRange();
-    const allVend = venditeDaCheckup(null);
-    const vs = allVend.filter(v => v.funnel === fn && inRange(v.dataVendita, from, to));
-    const cs = state.data.checkup.filter(c => c.funnel === fn && inRange(c.dataProspect, from, to));
-    const csFatti = cs.filter(c => String(c.checkupStato).toUpperCase() === 'FATTO' && inRange(c.dataCheckup, from, to));
-    const fatt = vs.reduce((a, v) => a + v.importo, 0);
-    const rop = cs.length ? Math.round(fatt / cs.length) : 0;
-    const contatti = cs.length;
-    const maxContatti = Math.max(1, ...funnels.map(f => state.data.checkup.filter(c => c.funnel === f && inRange(c.dataProspect, from, to)).length));
-    const barW = (contatti / maxContatti) * 100;
-    const meta = CHANNEL_META[fn] || { icon: '📦' };
+  // Dati dal foglio Sales TV per canale (fonte autorevole)
+  const canali = (state.data.salesTV && state.data.salesTV.canali) || {};
+  const kpis = funnels.map(fn => {
+    const row = canali[fn] && canali[fn].totale;
+    return {
+      fn,
+      contatti: row ? (row.prospectAssegnati || 0) : 0,
+      checkup:  row ? (row.checkup || 0) : 0,
+      vendite:  row ? (row.vendite || 0) : 0,
+      fatt:     row ? (row.fattPerCassa || 0) : 0,
+      rop:      row ? (row.rop || 0) : 0
+    };
+  });
+  const maxContatti = Math.max(1, ...kpis.map(k => k.contatti));
+  return kpis.map(k => {
+    const barW = (k.contatti / maxContatti) * 100;
+    const meta = CHANNEL_META[k.fn] || { icon: '📦' };
     return `
       <div class="canale-card">
         <div class="canale-head">
           <div class="canale-left">
             <div class="canale-icon">${meta.icon}</div>
             <div>
-              <div class="canale-name">${fn}</div>
-              <div class="canale-meta">${contatti} contatti · ${csFatti.length} check-up</div>
+              <div class="canale-name">${k.fn}</div>
+              <div class="canale-meta">${k.contatti} contatti · ${k.checkup} check-up</div>
             </div>
           </div>
           <div class="canale-right">
-            <div class="canale-fatt">${fmtEur(fatt)}</div>
-            <div class="canale-sub">${vs.length} vendite · ROP <b>${fmtEur(rop)}</b></div>
+            <div class="canale-fatt">${fmtEur(k.fatt)}</div>
+            <div class="canale-sub">${k.vendite} vendite · ROP <b>${fmtEur(k.rop)}</b></div>
           </div>
         </div>
         <div class="canale-bar"><div class="canale-bar-fill" style="width:${barW}%"></div></div>
