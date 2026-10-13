@@ -610,9 +610,24 @@ body {
 .mini-metric .l { font-size: 10px; letter-spacing: 1px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
 .mini-metric .l .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; }
 .mini-metric .v { font-size: 18px; font-weight: 700; color: var(--brand); margin-top: 4px; }
+.mini-metric .s { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 .mini-metric.green .v { color: var(--accent-green); }
 .mini-metric.cyan .v { color: var(--accent-cyan); }
 .mini-metric.purple .v { color: var(--accent-purple); }
+
+/* Riga 3 mini-metric per Statistiche Sofia */
+.mini-metric-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+/* Titolo con chip accanto */
+.section-title-row {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+}
+.section-title-row .section-title { margin: 0; }
 
 /* SE CONTINUA COSÌ box */
 .se-continua-box {

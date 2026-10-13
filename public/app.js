@@ -1315,11 +1315,19 @@ function renderSubStats(coach, agg) {
     .filter(v => inRange(v.dataVendita, agg.from, agg.to))
     .sort((a, b) => (b.dataVendita || '').localeCompare(a.dataVendita || ''));
 
+  const daChiamare = Math.max(0, agg.prospect - agg.chiamatiCount);
+  const proj = proiezioneFineMese(agg.fatt, agg.from, agg.to);
+  const pctProj = obiettivo ? (proj / obiettivo) * 100 : 0;
+  const projGood = pctProj >= 100;
+
   return `
     <section>
       <div class="section-label">Obiettivo</div>
-      <div class="section-title">${coach} nel periodo</div>
-      <div class="section-sub">Performance individuale</div>
+      <div class="section-title-row">
+        <div class="section-title">${coach} nel periodo</div>
+        ${daChiamare > 0 ? `<div class="venditore-chip">📞 ${daChiamare} da chiamare</div>` : ''}
+      </div>
+      <div class="section-sub">${agg.vendite} vendite · ${agg.checkup} check-up · ${trendChip(agg.trendFatt)}</div>
 
       <div class="team-grid">
         <div class="team-card">
@@ -1333,7 +1341,14 @@ function renderSubStats(coach, agg) {
           </div>
           <div class="team-info">
             <div class="info-sub-top">Per l'obiettivo mancano <b>${fmtEur(mancano)}</b>, circa <b>${stimaVendite} vendite</b></div>
-            <div class="info-hint">entro il ${dayEnd} ${monthName}</div>
+            ${proj > 0 ? `
+              <div class="se-continua-box ${projGood ? 'ok' : 'warn'}" style="margin-top:12px">
+                <div class="se-continua-label">Se continua così</div>
+                <div class="se-continua-value">${fmtEur(proj)}</div>
+                <div class="se-continua-sub">a fine mese · <b>${fmtPctInt(pctProj)}</b> dell'obiettivo</div>
+              </div>
+              <div class="info-hint" style="margin-top:10px">dove si arriva oggi a ritmo costante</div>
+            ` : `<div class="info-hint">entro il ${dayEnd} ${monthName}</div>`}
           </div>
         </div>
 
@@ -1344,7 +1359,19 @@ function renderSubStats(coach, agg) {
             ${trendChip(agg.rop ? ((agg.rop - agg.ropTarget) / agg.ropTarget) * 100 : 0)}
           </div>
           <div class="rop-sub">${fmtEur(agg.fatt)} di fatturato su ${agg.prospect} contatti · obiettivo <b>${fmtEur(agg.ropTarget)}</b></div>
-          <div class="rop-note">Chiusura: <b style="color:#eab308">${fmtPctInt(chiusura)}</b> · Vendita media: <b>${fmtEur(agg.ticketMedio)}</b> · ROC per chiamato: <b>${fmtEur(agg.roc)}</b></div>
+          <div class="rop-note">La linea è l'obiettivo di ${fmtEur(agg.ropTarget)} per contatto. Chiusura: <b style="color:#eab308">${fmtPctInt(chiusura)}</b> · Vendita media: <b>${fmtEur(agg.ticketMedio)}</b>.</div>
+          <div class="roc-badges">
+            <div class="roc-badge">
+              <div class="roc-label">ROC</div>
+              <div class="roc-value">${fmtEur(agg.roc)}</div>
+              <div class="roc-sub">per chiamato</div>
+            </div>
+            <div class="roc-badge roc-badge-rocu">
+              <div class="roc-label">ROCU</div>
+              <div class="roc-value">${fmtEur(agg.rocu)}</div>
+              <div class="roc-sub">per check-up · ${agg.checkup}</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1363,6 +1390,25 @@ function renderSubStats(coach, agg) {
           <div class="m-label">Chiamati</div>
           <div class="m-value">${fmtNum(agg.chiamatiCount)}</div>
           <div class="m-sub">${agg.prospect} prospect · ${agg.checkup} check-up fatti</div>
+        </div>
+      </div>
+
+      <!-- Mini metric row: Chiusura · Ticket medio · Lead mesi prima -->
+      <div class="mini-metric-row">
+        <div class="mini-metric purple">
+          <div class="l"><span class="dot" style="background:#7c3aed"></span>Chiusura</div>
+          <div class="v" style="color:#7c3aed">${fmtPctInt(chiusura)}</div>
+          <div class="s">${agg.vendite}/${agg.checkup} check-up</div>
+        </div>
+        <div class="mini-metric purple">
+          <div class="l"><span class="dot" style="background:#a855f7"></span>Ticket medio</div>
+          <div class="v" style="color:#a855f7">${fmtEur(agg.ticketMedio)}</div>
+          <div class="s">media per vendita</div>
+        </div>
+        <div class="mini-metric cyan">
+          <div class="l"><span class="dot" style="background:#06b6d4"></span>Lead mesi prima</div>
+          <div class="v" style="color:#06b6d4">${fmtEur(agg.daLeadPrecedenti)}</div>
+          <div class="s">incassato da lead passati</div>
         </div>
       </div>
     </section>
