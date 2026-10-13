@@ -530,29 +530,40 @@ function fetchText(url) {
 app.get('/api/tabs', async (req, res) => {
   if (!isAuthed(req)) return res.status(401).json({ ok: false });
   try {
-    // htmlview mostra tutti i tab come link con gid. Il foglio è pubblico in lettura (gviz funziona).
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/htmlview`;
     const resp = await fetchText(url);
     const html = resp.body || '';
-    // Cerca pattern: name:"TABNAME",gid:"NNN" (ordine instabile) oppure id="sheet-button-NNN"...
     const found = [];
     const seen = new Set();
-    const pat1 = /"name"\s*:\s*"([^"]+)"\s*,\s*"gid"\s*:\s*"?(\d+)"?/g;
-    const pat2 = /sheet-button-(\d+)[^>]*>\s*<a[^>]*>([^<]+)</g;
-    let m;
-    while ((m = pat1.exec(html)) !== null) {
-      const key = m[2];
-      if (seen.has(key)) continue;
-      seen.add(key);
-      found.push({ name: m[1], gid: m[2] });
+    // Tanti pattern diversi per robustezza (Google cambia frequentemente il formato dell'htmlview)
+    const patterns = [
+      /"name"\s*:\s*"([^"]+)"\s*,\s*"gid"\s*:\s*"?(\d+)"?/g,
+      /"gid"\s*:\s*"?(\d+)"?\s*,\s*"name"\s*:\s*"([^"]+)"/g,
+      /sheet-button-(\d+)[^>]*>\s*<a[^>]*>([^<]+)</g,
+      /href="[^"]*#gid=(\d+)"[^>]*>([^<]+)</g,
+      /gid=(\d+)[^"]*"[^>]*>([^<]+)</g,
+    ];
+    for (let i = 0; i < patterns.length; i++) {
+      const pat = patterns[i];
+      let m;
+      while ((m = pat.exec(html)) !== null) {
+        // Match 1 può essere name o gid a seconda del pattern
+        let name, gid;
+        if (i === 1 || i === 2 || i === 3 || i === 4) {
+          gid = m[1]; name = m[2];
+        } else {
+          name = m[1]; gid = m[2];
+        }
+        if (!/^\d+$/.test(String(gid))) continue;
+        if (seen.has(gid)) continue;
+        seen.add(gid);
+        found.push({ name: name.trim(), gid, pattern: i });
+      }
     }
-    while ((m = pat2.exec(html)) !== null) {
-      const key = m[1];
-      if (seen.has(key)) continue;
-      seen.add(key);
-      found.push({ name: m[2], gid: m[1] });
-    }
-    res.json({ ok: true, status: resp.status, count: found.length, tabs: found, htmlSize: html.length });
+    // Snippet HTML per debug: trova 3 occorrenze di "gid"
+    const idx = html.indexOf('gid');
+    const snippet = idx >= 0 ? html.slice(Math.max(0, idx - 50), idx + 300) : null;
+    res.json({ ok: true, status: resp.status, count: found.length, tabs: found, htmlSize: html.length, snippet });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
