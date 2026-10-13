@@ -25,19 +25,19 @@ const state = {
 };
 
 const COACH_SUBVIEWS = [
-  { id: 'stats',         label: 'Statistiche',    icon: '📊' },
-  { id: 'calendario',    label: 'Calendario',     icon: '📅' },
-  { id: 'contatti',      label: 'Contatti',       icon: '👥' },
-  { id: 'da-chiamare',   label: 'Da chiamare',    icon: '📞' },
-  { id: 'no-risp',       label: 'No risp.',       icon: '🔕' },
-  { id: 'sospesi',       label: 'Sospesi',        icon: '⏸️' },
-  { id: 'checkup',       label: 'Check-up',       icon: '✅' },
-  { id: 'follow-up',     label: 'Follow-up',      icon: '🔄' },
-  { id: 'da-risentire',  label: 'Da risentire',   icon: '🔁' },
-  { id: 'vendite',       label: 'Vendite',        icon: '💰' },
-  { id: 'da-pagare',     label: 'Da pagare',      icon: '💸' },
-  { id: 'persi',         label: 'Persi',          icon: '❌' },
-  { id: 'registrazioni', label: 'Registrazioni',  icon: '🎙️' }
+  { id: 'stats',         label: 'Statistiche',    num: 1  },
+  { id: 'calendario',    label: 'Calendario',     num: 2  },
+  { id: 'contatti',      label: 'Contatti',       num: 3  },
+  { id: 'da-chiamare',   label: 'Da chiamare',    num: 4  },
+  { id: 'no-risp',       label: 'No risp.',       num: 5  },
+  { id: 'sospesi',       label: 'Sospesi',        num: 6  },
+  { id: 'checkup',       label: 'Check-up',       num: 7  },
+  { id: 'follow-up',     label: 'Follow-up',      num: 8  },
+  { id: 'da-risentire',  label: 'Da risentire',   num: 9  },
+  { id: 'vendite',       label: 'Vendite',        num: 10 },
+  { id: 'da-pagare',     label: 'Da pagare',      num: 11 },
+  { id: 'persi',         label: 'Persi',          num: 12 },
+  { id: 'registrazioni', label: 'Registrazioni',  num: 13 }
 ];
 
 // ─────────────── DOM helpers ───────────────
@@ -1180,7 +1180,7 @@ function renderCoachDetail(coach) {
       ${COACH_SUBVIEWS.map(v => {
         const n = counts[v.id];
         return `<button class="coach-sub ${sub === v.id ? 'active' : ''}" data-sub="${v.id}">
-          <span class="coach-sub-ico">${v.icon}</span>
+          <span class="coach-sub-ico">${v.num}</span>
           <span class="coach-sub-lbl">${v.label}</span>
           ${(n != null && n > 0) ? `<span class="coach-sub-badge">${n}</span>` : ''}
         </button>`;
@@ -1735,12 +1735,34 @@ function bindContent() {
 // ─────────────── PERIOD PILLS / DATE PICKERS ───────────────
 
 function updatePeriodChip() {
-  // Sincronizza i date picker con il periodo del foglio
+  // Sincronizza i date picker con il periodo del foglio (sempre, non solo se vuoti)
   const sp = sheetPeriod();
   if (sp) {
     const df = $('#dateFrom'), dt = $('#dateTo');
-    if (df && !df.value) df.value = sp.from;
-    if (dt && !dt.value) dt.value = sp.to;
+    if (df) df.value = sp.from;
+    if (dt) dt.value = sp.to;
+    syncActivePill(sp.from, sp.to);
+  }
+}
+
+// Attiva il pill che corrisponde al range (altrimenti nessuno)
+function syncActivePill(from, to) {
+  const pills = $$('.pill');
+  pills.forEach(x => x.classList.remove('active'));
+  for (const b of pills) {
+    const id = b.dataset.period;
+    if (id === 'sheet') continue;
+    const range = periodFromPill(id);
+    if (range && range[0] === from && range[1] === to) {
+      b.classList.add('active');
+      return;
+    }
+  }
+  // Nessuno dei preset corrisponde → attivo il pill "sheet"
+  const sheetPill = pills.find ? pills.find(p => p.dataset.period === 'sheet') : null;
+  if (sheetPill) sheetPill.classList.add('active');
+  else {
+    for (const b of pills) if (b.dataset.period === 'sheet') { b.classList.add('active'); break; }
   }
 }
 
