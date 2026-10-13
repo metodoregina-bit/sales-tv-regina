@@ -481,14 +481,25 @@ function renderContent() {
   bindContent();
 }
 
+// Conta i mesi distinti nel range [from, to] (es. 2026-01-01 → 2026-12-31 = 12)
+function monthsInRange(from, to) {
+  if (!from || !to) return 1;
+  const [fy, fm] = from.split('-').map(Number);
+  const [ty, tm] = to.split('-').map(Number);
+  const n = (ty * 12 + tm) - (fy * 12 + fm) + 1;
+  return Math.max(1, n);
+}
+
 function renderHome() {
   const agg = aggregateFor(null);
   const coaches = activeCoaches();
-  // Obiettivo team = somma degli obiettivi dei singoli coach (o x N se solo TOTALE)
-  const totObiettivo = coaches.reduce((s, c) => {
+  const nMesi = monthsInRange(agg.from, agg.to);
+  // Obiettivo team = somma degli obiettivi mensili dei coach × numero mesi nel periodo
+  const obiettivoMensile = coaches.reduce((s, c) => {
     const a = aggregateFor(c);
     return s + (a && a.obiettivo ? a.obiettivo : OBIETTIVO_COACH);
   }, 0) || (agg.obiettivo || OBIETTIVO_COACH);
+  const totObiettivo = obiettivoMensile * nMesi;
   const pctObj = totObiettivo ? (agg.fatt / totObiettivo) * 100 : 0;
   const mancano = Math.max(0, totObiettivo - agg.fatt);
   const [ , to] = agg.from ? [agg.from, agg.to] : ['', ''];
@@ -762,14 +773,17 @@ function renderAndamento(coaches) {
     });
   }
   const colors = ['#3b82f6', '#f97316', '#a855f7', '#10b981'];
+  // Sorgente: foglio Vendite Regina (fonte autorevole con importi corretti)
+  const allVendite = (state.data && state.data.vendite) || [];
   const series = coaches.map((c, i) => {
-    const vs = venditeDaCheckup(c);
     const byMonth = {};
-    vs.forEach(v => {
-      if (!v.dataVendita) return;
+    for (let k = 0, L = allVendite.length; k < L; k++) {
+      const v = allVendite[k];
+      if (!v.dataVendita || !v.importo) continue;
+      if (c && v.coach && v.coach !== c) continue;
       const mk = v.dataVendita.substring(0, 7);
       byMonth[mk] = (byMonth[mk] || 0) + v.importo;
-    });
+    }
     return {
       coach: c,
       color: colors[i % colors.length],
@@ -887,7 +901,8 @@ function velocitaMedia(coach) {
 
 function renderVenditoreCard(coach) {
   const agg = aggregateFor(coach);
-  const obiettivo = agg.obiettivo || OBIETTIVO_COACH;
+  const nMesi = monthsInRange(agg.from, agg.to);
+  const obiettivo = (agg.obiettivo || OBIETTIVO_COACH) * nMesi;
   const pctObj = obiettivo ? (agg.fatt / obiettivo) * 100 : 0;
   const mancano = Math.max(0, obiettivo - agg.fatt);
   const stimaVendite = agg.ticketMedio ? Math.ceil(mancano / agg.ticketMedio) : 0;
@@ -1263,7 +1278,8 @@ function subViewCounts(coach, agg) {
 }
 
 function renderSubStats(coach, agg) {
-  const obiettivo = agg.obiettivo || OBIETTIVO_COACH;
+  const nMesi = monthsInRange(agg.from, agg.to);
+  const obiettivo = (agg.obiettivo || OBIETTIVO_COACH) * nMesi;
   const pctObj = obiettivo ? (agg.fatt / obiettivo) * 100 : 0;
   const mancano = Math.max(0, obiettivo - agg.fatt);
   const stimaVendite = agg.ticketMedio ? Math.ceil(mancano / agg.ticketMedio) : 0;
