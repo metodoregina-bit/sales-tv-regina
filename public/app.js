@@ -1659,8 +1659,23 @@ function renderSubVendite(coach, agg) {
 // ─────────────── SUB-VIEW: Da pagare ─────────────────
 
 function renderSubDaPagare(coach, agg) {
-  const vend = venditeDaCheckup(coach).filter(v => inRange(v.dataVendita, agg.from, agg.to));
-  const rows = vend.filter(v => (v.nRate > 0) && ((v.rateIncassate || 0) < v.nRate));
+  // Fonte 1: check-up con rate residue (venduto=true + nRate>rateIncassate)
+  const vendCU = venditeDaCheckup(coach).filter(v => inRange(v.dataVendita, agg.from, agg.to));
+  // Fonte 2: righe grezze dal foglio Vendite Regina (acconto solo, saldo non arrivato)
+  const vendRG = ((state.data && state.data.vendite) || [])
+    .filter(v => v.dataVendita && v.importo > 0)
+    .filter(v => !coach || v.coach === coach)
+    .filter(v => inRange(v.dataVendita, agg.from, agg.to));
+  // Dedupe (nome+cognome+importo) e combina
+  const seen = new Set();
+  const all = [];
+  for (const v of vendCU.concat(vendRG)) {
+    const k = `${(v.nome||'').toLowerCase()}|${(v.cognome||'').toLowerCase()}|${v.importo}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    all.push(v);
+  }
+  const rows = all.filter(v => (v.nRate > 0) && ((v.rateIncassate || 0) < v.nRate));
   const totResiduo = rows.reduce((s, v) => s + (v.importo * ((v.nRate - (v.rateIncassate || 0)) / v.nRate)), 0);
 
   return `

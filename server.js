@@ -183,8 +183,11 @@ function bool(v) {
 // Parse Vendite Regina: A=Data vendita, B=Nome, C=Cognome, D=Email, E=Telefono,
 // F=Coach, G=Prodotto, H=Importo, I=Modalità, J=NRate, K=RateIncass, L=Data incasso,
 // M=Funnel, N=Note, O=Data prospect
+// Parse Vendite Regina. Il foglio ha header rows (DA/A/TOTALE/METODO/MCM/ACF/BA/PRODOTTO/COACH)
+// seguite da righe vendite reali con dataVendita + nome cliente + importo + rate.
 function parseVendite(g) {
   if (!g || !g.table || !g.table.rows) return [];
+  const HEADER_NAMES = new Set(['DA','A','PRODOTTO','COACH','TOTALE','METODO','MCM','ACF','BA']);
   return g.table.rows.map(r => ({
     dataVendita: gvizDate(cell(r, 0)),
     nome: str(cell(r, 1)),
@@ -201,7 +204,13 @@ function parseVendite(g) {
     funnel: str(cell(r, 12)),
     note: str(cell(r, 13)),
     dataProspect: gvizDate(cell(r, 14))
-  })).filter(x => x.dataVendita || x.nome);
+  })).filter(x => {
+    // Scarta righe header
+    if (HEADER_NAMES.has(String(x.nome || '').toUpperCase())) return false;
+    // Scarta righe senza dataVendita valida (o solo nome senza importo)
+    if (!x.dataVendita && !x.importo) return false;
+    return true;
+  });
 }
 
 // Parse Sales TV TOTALE (dashboard aggregato)
