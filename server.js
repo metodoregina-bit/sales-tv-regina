@@ -510,6 +510,81 @@ app.get('/api/debug', async (req, res) => {
   }
 });
 
+// ────────────────── DEBUG: scan tab list (gid + name) ──────────────────
+// Il foglio pubblico non espone i nomi tab via JSON API senza autenticazione.
+// Workaround: fetchiamo l'HTML view del foglio e cerchiamo i tag <option> con gid.
+function fetchText(url) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    https.get({ hostname: u.hostname, path: u.pathname + u.search, headers: {'User-Agent': 'Mozilla/5.0'} }, (r) => {
+      if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location) {
+        return fetchText(new URL(r.headers.location, url).toString()).then(resolve, reject);
+      }
+      let d = '';
+      r.on('data', c => d += c);
+      r.on('end', () => resolve({ status: r.statusCode, body: d }));
+    }).on('error', reject);
+  });
+}
+
+app.get('/api/tabs', async (req, res) => {
+  if (!isAuthed(req)) return res.status(401).json({ ok: false });
+  try {
+    // htmlview mostra tutti i tab come link con gid. Il foglio è pubblico in lettura (gviz funziona).
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/htmlview`;
+    const resp = await fetchText(url);
+    const html = resp.body || '';
+    // Cerca pattern: name:"TABNAME",gid:"NNN" (ordine instabile) oppure id="sheet-button-NNN"...
+    const found = [];
+    const seen = new Set();
+    const pat1 = /"name"\s*:\s*"([^"]+)"\s*,\s*"gid"\s*:\s*"?(\d+)"?/g;
+    const pat2 = /sheet-button-(\d+)[^>]*>\s*<a[^>]*>([^<]+)</g;
+    let m;
+    while ((m = pat1.exec(html)) !== null) {
+      const key = m[2];
+      if (seen.has(key)) continue;
+      seen.add(key);
+      found.push({ name: m[1], gid: m[2] });
+    }
+    while ((m = pat2.exec(html)) !== null) {
+      const key = m[1];
+      if (seen.has(key)) continue;
+      seen.add(key);
+      found.push({ name: m[2], gid: m[1] });
+    }
+    res.json({ ok: true, status: resp.status, count: found.length, tabs: found, htmlSize: html.length });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Legge una tab Vendite via GID esplicito (debug)
+app.get('/api/vendite-by-gid/:gid', async (req, res) => {
+  if (!isAuthed(req)) return res.status(401).json({ ok: false });
+  try {
+    const gid = String(req.params.gid).replace(/[^0-9]/g, '');
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}&range=A1:O2000`;
+    const resp = await fetchText(url);
+    const match = resp.body.match(/\{[\s\S]*\}/);
+    if (!match) return res.json({ ok: false, status: resp.status, error: 'no-json', snippet: resp.body.slice(0, 300) });
+    const j = JSON.parse(match[0]);
+    const rows = j.table && j.table.rows ? j.table.rows : [];
+    const sample = rows.slice(0, 10).map(r => ({
+      A: r.c[0]?.f || r.c[0]?.v,
+      B: r.c[1]?.v,
+      C: r.c[2]?.v,
+      G: r.c[6]?.v,
+      H: r.c[7]?.v,
+      I: r.c[8]?.v,
+      J: r.c[9]?.v,
+      K: r.c[10]?.v
+    }));
+    res.json({ ok: true, gid, totalRows: rows.length, cols: (j.table.cols||[]).length, sample });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // ────────────────── STATIC + FALLBACK ──────────────────
 
 app.use(express.static(path.join(__dirname, 'public')));
