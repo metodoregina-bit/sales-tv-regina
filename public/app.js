@@ -1142,17 +1142,37 @@ function renderVelocitaCard(coach) {
 
 function renderCanali() {
   const funnels = state.data.config.funnels;
-  // Dati dal foglio Sales TV per canale (fonte autorevole)
+  // Dati dal foglio Sales TV per canale (fonte aggregata) + fallback ai check-up grezzi
   const canali = (state.data.salesTV && state.data.salesTV.canali) || {};
+  const sp = sheetPeriod();
+  const [from, to] = sp ? [sp.from, sp.to] : computePeriodRange();
+  const checkupAll = (state.data && state.data.checkup) || [];
+  const venditeAll = venditeDaCheckup(null).filter(v => inRange(v.dataVendita, from, to));
+
   const kpis = funnels.map(fn => {
     const row = canali[fn] && canali[fn].totale;
+    // Fonte aggregata (foglio Sales TV per canale)
+    const aggContatti = row ? (row.prospectAssegnati || 0) : 0;
+    const aggCheckup = row ? (row.checkup || 0) : 0;
+    const aggVendite = row ? (row.vendite || 0) : 0;
+    const aggFatt    = row ? (row.fattPerCassa || 0) : 0;
+    const aggRop     = row ? (row.rop || 0) : 0;
+    // Fonte grezza dai check-up prenotati, filtrata per funnel + periodo
+    const cuFunnel = checkupAll.filter(c => c.funnel === fn);
+    const rawProspect = cuFunnel.filter(c => inRange(c.dataProspect, from, to)).length;
+    const rawCheckup = cuFunnel.filter(c => inRange(c.dataCheckup, from, to) && String(c.checkupStato).toUpperCase() === 'FATTO').length;
+    const rawCheckupPrenotati = cuFunnel.filter(c => c.dataCheckup && inRange(c.dataCheckup, from, to)).length;
+    const vFunnel = venditeAll.filter(v => v.funnel === fn);
+    const rawVendite = vFunnel.length;
+    const rawFatt = vFunnel.reduce((s, v) => s + v.importo, 0);
+    // Prende il valore più ricco tra aggregato e grezzo
     return {
       fn,
-      contatti: row ? (row.prospectAssegnati || 0) : 0,
-      checkup:  row ? (row.checkup || 0) : 0,
-      vendite:  row ? (row.vendite || 0) : 0,
-      fatt:     row ? (row.fattPerCassa || 0) : 0,
-      rop:      row ? (row.rop || 0) : 0
+      contatti: Math.max(aggContatti, rawProspect),
+      checkup: Math.max(aggCheckup, rawCheckupPrenotati),
+      vendite: Math.max(aggVendite, rawVendite),
+      fatt: Math.max(aggFatt, rawFatt),
+      rop: aggRop || (rawProspect ? Math.round(rawFatt / rawProspect) : 0)
     };
   });
   const maxContatti = Math.max(1, ...kpis.map(k => k.contatti));
@@ -1181,10 +1201,10 @@ function renderCanali() {
 }
 
 function renderProdotti() {
-  // Sorgente: foglio "Vendite Regina" (fonte autorevole), filtrato per periodo del foglio
+  // Sorgente: check-up prenotati con venduto=true (col IMPORTO + PRODOTTO VENDUTO)
   const sp = sheetPeriod();
   const [from, to] = sp ? [sp.from, sp.to] : computePeriodRange();
-  const all = (state.data && state.data.vendite) || [];
+  const all = venditeDaCheckup(null);
   const vs = all.filter(v => v.dataVendita && v.prodotto && inRange(v.dataVendita, from, to) && v.importo > 0);
   const byProd = {};
   vs.forEach(v => {
