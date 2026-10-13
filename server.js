@@ -547,7 +547,7 @@ app.get('/api/tabs', async (req, res) => {
       // Cerca ", gid:" dopo nEnd fino al prossimo "items.push" o 1000 char
       const nextPush = html.indexOf('items.push', nEnd);
       const limit = nextPush === -1 ? nEnd + 1500 : nextPush;
-      const gidMatch = html.slice(nEnd, limit).match(/,\s*gid:\s*(-?\d+)/);
+      const gidMatch = html.slice(nEnd, limit).match(/,\s*gid:\s*"?(-?\d+)"?/);
       if (gidMatch) {
         const gid = gidMatch[1];
         if (!seen.has(gid)) {
