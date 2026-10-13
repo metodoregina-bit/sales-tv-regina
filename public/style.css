@@ -837,6 +837,7 @@ body {
 }
 .cal-dot-cu { background: #3b82f6; }
 .cal-dot-vd { background: #10b981; }
+.cal-dot-out { background: #cbd5e1; }
 
 .cal-grid {
   display: grid;
@@ -866,6 +867,8 @@ body {
   position: relative;
 }
 .cal-cell.cal-empty { border-color: transparent; background: transparent; }
+.cal-cell.cal-out { opacity: 0.45; }
+.cal-cell.cal-out .cal-dnum { color: #94a3b8; }
 .cal-cell.cal-has { border-color: rgba(59,130,246,0.3); background: #f8fbff; }
 .cal-dnum {
   font-size: 11px;

@@ -1407,53 +1407,71 @@ function renderSubList(coach, agg, kind) {
 // ─────────────── SUB-VIEW: Calendario ─────────────────
 
 function renderSubCalendario(coach, agg) {
-  // Determina range calendario:
-  // - Se range "stretto" (<= 42gg) usa agg.from → agg.to
-  // - Altrimenti mostra il mese corrente (vista agenda standard)
-  const fromD = new Date(agg.from);
-  const toD = new Date(agg.to);
-  const spanDays = Math.round((toD - fromD) / 86400000) + 1;
-  let start, days, calLabel;
-  if (spanDays <= 45) {
-    start = fromD;
-    days = Math.max(7, spanDays);
-    calLabel = `${fmtDate(agg.from)} → ${fmtDate(agg.to)}`;
-  } else {
-    const today = new Date();
-    start = new Date(today.getFullYear(), today.getMonth(), 1);
-    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    days = lastDay;
-    calLabel = today.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
-  }
-  const startIso = `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`;
-  const endD = new Date(start.getTime() + (days - 1) * 86400000);
-  const endIso = `${endD.getFullYear()}-${String(endD.getMonth()+1).padStart(2,'0')}-${String(endD.getDate()).padStart(2,'0')}`;
+  // Mostra il mese che contiene `from`. Le celle fuori dal periodo [from,to] sono "fuori range".
+  const [fy, fm, fd] = agg.from.split('-').map(Number);
+  const monthStart = new Date(fy, fm - 1, 1);
+  const monthEnd = new Date(fy, fm, 0);
+  const daysInMonth = monthEnd.getDate();
+  const monthName = monthStart.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
 
-  // Raggruppa per data (filtra sul range calendario, non sul periodo)
-  const byDay = {};
-  const data = filterByCoachAndPeriod(coach, agg)
-    .filter(c => c.dataCheckup && c.dataCheckup >= startIso && c.dataCheckup <= endIso);
-  const vendite = venditeDaCheckup(coach)
-    .filter(v => v.dataVendita && v.dataVendita >= startIso && v.dataVendita <= endIso);
-  data.forEach(c => {
+  // Pre-calcolo veloce byDay in un unico passaggio
+  const byDay = Object.create(null);
+  const checkup = state.data.checkup;
+  for (let i = 0, L = checkup.length; i < L; i++) {
+    const c = checkup[i];
+    if ((coach && c.coach !== coach) || !c.dataCheckup) continue;
+    if (!c.dataCheckup.startsWith(`${fy}-${String(fm).padStart(2,'0')}`)) continue;
     (byDay[c.dataCheckup] = byDay[c.dataCheckup] || { checkup: [], vendite: [] }).checkup.push(c);
-  });
-  vendite.forEach(v => {
-    (byDay[v.dataVendita] = byDay[v.dataVendita] || { checkup: [], vendite: [] }).vendite.push(v);
-  });
-
-  const cal = [];
-  for (let i = 0; i < days; i++) {
-    const d = new Date(start.getTime() + i * 86400000);
-    const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    cal.push({ iso, d, info: byDay[iso] || null });
   }
-  const dowShort = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+  const vendite = venditeDaCheckup(coach);
+  for (let i = 0, L = vendite.length; i < L; i++) {
+    const v = vendite[i];
+    if (!v.dataVendita) continue;
+    if (!v.dataVendita.startsWith(`${fy}-${String(fm).padStart(2,'0')}`)) continue;
+    (byDay[v.dataVendita] = byDay[v.dataVendita] || { checkup: [], vendite: [] }).vendite.push(v);
+  }
 
-  // Head giorni della settimana (parte da lunedì)
-  const padStart = (cal[0].d.getDay() + 6) % 7; // 0 = Mon
-  const grid = Array(padStart).fill(null).concat(cal);
-  while (grid.length % 7 !== 0) grid.push(null);
+  const dowShort = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+  const padStart = (monthStart.getDay() + 6) % 7; // Lun=0
+
+  // Costruisci griglia con 42 slot (6 settimane) in un singolo array per velocità
+  const cells = [];
+  for (let i = 0; i < padStart; i++) cells.push('<div class="cal-cell cal-empty"></div>');
+  const mm = String(fm).padStart(2, '0');
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = `${fy}-${mm}-${String(d).padStart(2, '0')}`;
+    const info = byDay[iso];
+    const inPeriod = iso >= agg.from && iso <= agg.to;
+    const cls = `cal-cell ${info ? 'cal-has' : ''} ${inPeriod ? '' : 'cal-out'}`.trim();
+    if (!info) {
+      cells.push(`<div class="${cls}"><div class="cal-dnum">${d}</div></div>`);
+      continue;
+    }
+    const nCU = info.checkup.length, nVD = info.vendite.length;
+    let totImp = 0; for (let k = 0; k < nVD; k++) totImp += info.vendite[k].importo;
+    let items = '';
+    const maxCU = Math.min(2, nCU);
+    for (let k = 0; k < maxCU; k++) {
+      const c = info.checkup[k];
+      items += `<div class="cal-item cal-item-cu">${esc(c.nome)} ${(esc(c.cognome)||'').slice(0,1)}.</div>`;
+    }
+    const maxVD = Math.min(2, nVD);
+    for (let k = 0; k < maxVD; k++) {
+      const v = info.vendite[k];
+      items += `<div class="cal-item cal-item-vd">${esc(v.nome)}</div>`;
+    }
+    const more = nCU + nVD - maxCU - maxVD;
+    cells.push(
+      `<div class="${cls}"><div class="cal-dnum">${d}</div>${items}` +
+      (more > 0 ? `<div class="cal-more">+${more}</div>` : '') +
+      (totImp > 0 ? `<div class="cal-tot">${fmtEur(totImp)}</div>` : '') +
+      `</div>`
+    );
+  }
+  while (cells.length % 7 !== 0) cells.push('<div class="cal-cell cal-empty"></div>');
+
+  const dowHtml = dowShort.map(d => `<div class="cal-dow">${d}</div>`).join('');
+  const calLabel = `${monthName} · evidenziato ${fmtDate(agg.from)} → ${fmtDate(agg.to)}`;
 
   return `
     <section>
@@ -1464,29 +1482,12 @@ function renderSubCalendario(coach, agg) {
       <div class="cal-legend">
         <span class="cal-dot cal-dot-cu"></span> Check-up
         <span class="cal-dot cal-dot-vd"></span> Vendita
+        <span class="cal-dot cal-dot-out"></span> Fuori periodo
       </div>
 
       <div class="cal-grid">
-        ${dowShort.map(d => `<div class="cal-dow">${d}</div>`).join('')}
-        ${grid.map(cell => {
-          if (!cell) return `<div class="cal-cell cal-empty"></div>`;
-          const dayNum = cell.d.getDate();
-          const info = cell.info;
-          const nCU = info ? info.checkup.length : 0;
-          const nVD = info ? info.vendite.length : 0;
-          const totImp = info ? info.vendite.reduce((s,v) => s + v.importo, 0) : 0;
-          const items = info ? [
-            ...info.checkup.slice(0, 2).map(c => `<div class="cal-item cal-item-cu" title="${esc(c.nome)} ${esc(c.cognome)} · ${esc(c.checkupStato)||'—'}">${esc(c.nome)} ${(esc(c.cognome)||'').slice(0,1)}.</div>`),
-            ...info.vendite.slice(0, 2).map(v => `<div class="cal-item cal-item-vd" title="${esc(v.nome)} ${esc(v.cognome)} · €${fmtNum(v.importo)}">💰 ${esc(v.nome)}</div>`)
-          ].join('') : '';
-          const more = info ? (nCU + nVD) - Math.min(2, nCU) - Math.min(2, nVD) : 0;
-          return `<div class="cal-cell ${info ? 'cal-has' : ''}">
-            <div class="cal-dnum">${dayNum}</div>
-            ${items}
-            ${more > 0 ? `<div class="cal-more">+${more}</div>` : ''}
-            ${totImp > 0 ? `<div class="cal-tot">${fmtEur(totImp)}</div>` : ''}
-          </div>`;
-        }).join('')}
+        ${dowHtml}
+        ${cells.join('')}
       </div>
     </section>
   `;
