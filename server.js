@@ -536,29 +536,15 @@ app.get('/api/tabs', async (req, res) => {
     const found = [];
     const seen = new Set();
     // Tanti pattern diversi per robustezza (Google cambia frequentemente il formato dell'htmlview)
-    const patterns = [
-      /"name"\s*:\s*"([^"]+)"\s*,\s*"gid"\s*:\s*"?(\d+)"?/g,
-      /"gid"\s*:\s*"?(\d+)"?\s*,\s*"name"\s*:\s*"([^"]+)"/g,
-      /sheet-button-(\d+)[^>]*>\s*<a[^>]*>([^<]+)</g,
-      /href="[^"]*#gid=(\d+)"[^>]*>([^<]+)</g,
-      /gid=(\d+)[^"]*"[^>]*>([^<]+)</g,
-    ];
-    for (let i = 0; i < patterns.length; i++) {
-      const pat = patterns[i];
-      let m;
-      while ((m = pat.exec(html)) !== null) {
-        // Match 1 può essere name o gid a seconda del pattern
-        let name, gid;
-        if (i === 1 || i === 2 || i === 3 || i === 4) {
-          gid = m[1]; name = m[2];
-        } else {
-          name = m[1]; gid = m[2];
-        }
-        if (!/^\d+$/.test(String(gid))) continue;
-        if (seen.has(gid)) continue;
-        seen.add(gid);
-        found.push({ name: name.trim(), gid, pattern: i });
-      }
+    // Google htmlview injetta: items.push({name: "TABNAME", pageUrl: "...gid=NNN", gid: NNN, ...})
+    const pat = /items\.push\(\{name:\s*"([^"]+)"[\s\S]{0,200}?gid:\s*(-?\d+)/g;
+    let m;
+    while ((m = pat.exec(html)) !== null) {
+      const name = m[1];
+      const gid = m[2];
+      if (seen.has(gid)) continue;
+      seen.add(gid);
+      found.push({ name, gid });
     }
     // Snippet HTML per debug: trova 3 occorrenze di "gid"
     const idx = html.indexOf('gid');
