@@ -537,7 +537,7 @@ app.get('/api/tabs', async (req, res) => {
     const seen = new Set();
     // Tanti pattern diversi per robustezza (Google cambia frequentemente il formato dell'htmlview)
     // Google htmlview injetta: items.push({name: "TABNAME", pageUrl: "...gid=NNN", gid: NNN, ...})
-    const pat = /items\.push\(\{name:\s*"([^"]+)"[\s\S]{0,200}?gid:\s*(-?\d+)/g;
+    const pat = /items\.push\(\{name:\s*"([^"]+)"[\s\S]{0,500}?,\s*gid:\s*(-?\d+)/g;
     let m;
     while ((m = pat.exec(html)) !== null) {
       const name = m[1];
