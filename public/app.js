@@ -864,7 +864,18 @@ function renderAndamento(coaches) {
         ${series.map((s, i) => `
           <path d="${areaFor(s.values)}" fill="url(#grad-${i})"/>
           <path d="${pathFor(s.values)}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          ${s.values.map((v, k) => {
+            const pt = pointsFor(s.values)[k];
+            return `<circle cx="${pt.x}" cy="${pt.y}" r="4" fill="${s.color}" stroke="white" stroke-width="2"/>`;
+          }).join('')}
         `).join('')}
+        ${months.map((m, i) => {
+          const x = PAD_L + i * stepX;
+          const colW = stepX;
+          const monthLabel = m.label.charAt(0).toUpperCase() + m.label.slice(1);
+          const tipLines = series.map(s => `${s.coach}: €${new Intl.NumberFormat('it-IT').format(s.values[i])}`).join('\n');
+          return `<rect x="${x - colW/2}" y="${PAD_T}" width="${colW}" height="${CH}" fill="transparent" style="cursor:crosshair"><title>${monthLabel}\n${tipLines}</title></rect>`;
+        }).join('')}
       </svg>
     </div>
   `;
