@@ -397,35 +397,39 @@ app.get('/api/data', async (req, res) => {
 
 // ────────────────── SET PERIOD (scrive celle DA/A nei fogli Sales TV) ──────────────────
 
-function postJson(url, body) {
+function postJson(url, body, maxRedirects = 5) {
   return new Promise((resolve, reject) => {
-    const u = new URL(url);
     const data = JSON.stringify(body);
-    const opts = {
-      method: 'POST',
-      hostname: u.hostname,
-      path: u.pathname + u.search,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(data)
-      }
-    };
-    const req = https.request(opts, (r) => {
-      // Apps Script può fare redirect: segui
-      if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location) {
-        return https.get(r.headers.location, (r2) => {
-          let d = '';
-          r2.on('data', c => d += c);
-          r2.on('end', () => resolve({ status: r2.statusCode, body: d }));
-        }).on('error', reject);
-      }
-      let d = '';
-      r.on('data', c => d += c);
-      r.on('end', () => resolve({ status: r.statusCode, body: d }));
-    });
-    req.on('error', reject);
-    req.write(data);
-    req.end();
+
+    function doPost(targetUrl, redirects) {
+      const u = new URL(targetUrl);
+      const opts = {
+        method: 'POST',
+        hostname: u.hostname,
+        path: u.pathname + u.search,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(data)
+        }
+      };
+      const req = https.request(opts, (r) => {
+        // Apps Script fa 302 → googleusercontent.com. Rifare POST (non GET) con stesso body
+        if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location) {
+          if (redirects <= 0) return reject(new Error('Troppi redirect'));
+          // consuma il body di risposta
+          r.resume();
+          return doPost(new URL(r.headers.location, targetUrl).toString(), redirects - 1);
+        }
+        let d = '';
+        r.on('data', c => d += c);
+        r.on('end', () => resolve({ status: r.statusCode, body: d }));
+      });
+      req.on('error', reject);
+      req.write(data);
+      req.end();
+    }
+
+    doPost(url, maxRedirects);
   });
 }
 
