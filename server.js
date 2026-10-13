@@ -562,13 +562,17 @@ app.get('/api/tabs', async (req, res) => {
     const snippet = idx >= 0 ? html.slice(Math.max(0, idx - 50), idx + 300) : null;
     const debug = {
       hasItemsPush: html.indexOf('items.push') !== -1,
-      hasItemsPushPat: html.indexOf('items.push({name:') !== -1,
       firstItemsPushPos: html.indexOf('items.push'),
-      itemsPushContextRaw: null
+      itemsPushContextRaw: null,
+      gidPos: html.indexOf(', gid:'),
+      gidContextRaw: null
     };
     if (debug.firstItemsPushPos >= 0) {
-      debug.itemsPushContextRaw = html.slice(debug.firstItemsPushPos, debug.firstItemsPushPos + 120);
-      debug.charCodes = Array.from(html.slice(debug.firstItemsPushPos, debug.firstItemsPushPos + 25)).map(c => c.charCodeAt(0));
+      debug.itemsPushContextRaw = html.slice(debug.firstItemsPushPos, debug.firstItemsPushPos + 400);
+    }
+    if (debug.gidPos >= 0) {
+      debug.gidContextRaw = html.slice(debug.gidPos, debug.gidPos + 50);
+      debug.gidCharCodes = Array.from(html.slice(debug.gidPos, debug.gidPos + 20)).map(c => c.charCodeAt(0));
     }
     res.json({ ok: true, status: resp.status, count: found.length, tabs: found, htmlSize: html.length, snippet, debug });
   } catch (e) {
