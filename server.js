@@ -295,8 +295,8 @@ function parseSalesTVCanale(g) {
 }
 
 // Parse check-up: A=Data compilazione, B=Nome, C=Cognome, D=Telefono, E=Email,
-// R=Coach (18), S=SETTING (19), X=DATA CHECK-UP (24), Y=CHECK UP (25),
-// AB=VENDUTO (28), AE=PROD VEND (31), AF=IMPORTO (32)
+// R=Coach (17), S=SETTING (18), X=DATA CHECK-UP (23), Y=CHECK UP (24),
+// AB=VENDUTO (27), AF=PROD VEND (31), AG=IMPORTO (32)
 function parseCheckup(g, funnel) {
   if (!g || !g.table || !g.table.rows) return [];
   return g.table.rows.map(r => ({
@@ -310,8 +310,8 @@ function parseCheckup(g, funnel) {
     dataCheckup: gvizDate(cell(r, 23)),
     checkupStato: str(cell(r, 24)),
     venduto: bool(cell(r, 27)),
-    prodottoVenduto: str(cell(r, 30)),
-    importo: num(cell(r, 31)),
+    prodottoVenduto: str(cell(r, 31)),
+    importo: num(cell(r, 32)),
     funnel: funnel
   })).filter(x => x.dataProspect || x.nome);
 }

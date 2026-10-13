@@ -587,10 +587,17 @@ function renderHome() {
             }).join('')}
           </div>
           <div class="rop-note">La linea bianca è l'obiettivo di ${fmtEur(agg.ropTarget)} per contatto. Somma di tutto il fatturato diviso i contatti di Queen Challenge, Quiz, Sales, Assistenza e Manuale.</div>
-          <div class="roc-badge">
-            <div class="roc-label">ROC</div>
-            <div class="roc-value">${fmtEur(agg.roc)}</div>
-            <div class="roc-sub">per chiamato</div>
+          <div class="roc-badges">
+            <div class="roc-badge">
+              <div class="roc-label">ROC</div>
+              <div class="roc-value">${fmtEur(agg.roc)}</div>
+              <div class="roc-sub">per chiamato</div>
+            </div>
+            <div class="roc-badge roc-badge-rocu">
+              <div class="roc-label">ROCU</div>
+              <div class="roc-value">${fmtEur(agg.rocu)}</div>
+              <div class="roc-sub">per check-up · ${agg.checkup}</div>
+            </div>
           </div>
           <!-- ROCU · Resa per check-up (team) -->
           <div class="rocu-section">
@@ -774,14 +781,13 @@ function renderAndamento(coaches) {
     });
   }
   const colors = ['#3b82f6', '#f97316', '#a855f7', '#10b981'];
-  // Sorgente: foglio Vendite Regina (fonte autorevole con importi corretti)
-  const allVendite = (state.data && state.data.vendite) || [];
+  // Sorgente: check-up con venduto=true e importo>0 (riga per riga, dalla col IMPORTO del foglio check-up)
   const series = coaches.map((c, i) => {
+    const vs = venditeDaCheckup(c);
     const byMonth = {};
-    for (let k = 0, L = allVendite.length; k < L; k++) {
-      const v = allVendite[k];
+    for (let k = 0, L = vs.length; k < L; k++) {
+      const v = vs[k];
       if (!v.dataVendita || !v.importo) continue;
-      if (c && v.coach && v.coach !== c) continue;
       const mk = v.dataVendita.substring(0, 7);
       byMonth[mk] = (byMonth[mk] || 0) + v.importo;
     }
@@ -795,7 +801,7 @@ function renderAndamento(coaches) {
   if (maxV === 0) {
     return `<div class="prodotti-card" style="padding:48px;text-align:center;color:var(--text-muted)">
       <div style="font-size:14px;margin-bottom:8px">Nessuna vendita registrata negli ultimi 12 mesi</div>
-      <div style="font-size:12px;opacity:0.7">Il grafico si popola quando il foglio Vendite Regina avrà vendite con data e importo</div>
+      <div style="font-size:12px;opacity:0.7">Il grafico si popola quando ci sono check-up con VENDUTO=sì e un IMPORTO</div>
     </div>`;
   }
   const W = 900, H = 260, PAD_L = 60, PAD_R = 20, PAD_T = 20, PAD_B = 44;

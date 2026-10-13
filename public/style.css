@@ -459,17 +459,25 @@ body {
 }
 .rop-bar-value { text-align: right; font-weight: 600; }
 .rop-note { font-size: 11px; color: rgba(255,255,255,0.5); line-height: 1.5; }
-.roc-badge {
+/* ROC/ROCU badges stackati in alto a destra della card scura ROP */
+.roc-badges {
   position: absolute; top: 24px; right: 24px;
-  background: rgba(255,255,255,0.06);
-  border-radius: 12px;
-  padding: 14px 20px;
-  text-align: right;
+  display: flex; flex-direction: column; gap: 8px;
   z-index: 3;
 }
-.roc-badge .roc-label { font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 1.5px; }
-.roc-badge .roc-value { font-size: 22px; font-weight: 700; }
-.roc-badge .roc-sub { font-size: 10px; color: rgba(255,255,255,0.5); }
+.roc-badge {
+  background: rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 10px 16px;
+  text-align: right;
+  min-width: 110px;
+  line-height: 1.1;
+}
+.roc-badge .roc-label { font-size: 10px; color: rgba(255,255,255,0.55); letter-spacing: 1.5px; font-weight: 600; }
+.roc-badge .roc-value { font-size: 20px; font-weight: 700; margin-top: 4px; white-space: nowrap; }
+.roc-badge .roc-sub { font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+.roc-badge-rocu .roc-value { color: #67e8f9; }
+.roc-badge-rocu .roc-label { color: rgba(103,232,249,0.75); }
 
 /* METRIC CARDS 3 */
 .metrics-row {
