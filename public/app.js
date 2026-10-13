@@ -186,11 +186,12 @@ function computePeriodRange() {
 // Calcola [from, to] in base al pill cliccato (indipendente da state.period)
 function periodFromPill(id) {
   const today = todayISO();
+  const Y = new Date().getFullYear();
   switch (id) {
     case 'thisMonth': return [firstOfMonthISO(0), lastOfMonthISO(0)];
     case 'thisWeek':  return [firstOfWeekISO(0), today];
     case 'lastMonth': return [firstOfMonthISO(-1), lastOfMonthISO(-1)];
-    case 'ytd':      return [`${new Date().getFullYear()}-01-01`, today];
+    case 'ytd':      return [`${Y}-01-01`, `${Y}-12-31`]; // Quest'anno = anno intero (per obiettivo annuo)
     default:         return null;
   }
 }
