@@ -1317,7 +1317,12 @@ function subViewCounts(coach, agg) {
   });
   const vendite = venditeDaCheckup(coach).filter(v => inRange(v.dataVendita, agg.from, agg.to));
   counts.vendite = vendite.length;
-  counts['da-pagare'] = vendite.filter(v => (v.nRate > 0) && ((v.rateIncassate || 0) < v.nRate)).length;
+  // Da pagare = righe Vendite Regina con acconto spuntato ma saldo non ancora pagato
+  const vendRG = ((state.data && state.data.vendite) || [])
+    .filter(v => v.dataVendita && v.importo > 0)
+    .filter(v => !coach || v.coach === coach)
+    .filter(v => inRange(v.dataVendita, agg.from, agg.to));
+  counts['da-pagare'] = vendRG.filter(v => v.acconto && !v.saldo).length;
   return counts;
 }
 
@@ -1659,48 +1664,37 @@ function renderSubVendite(coach, agg) {
 // ─────────────── SUB-VIEW: Da pagare ─────────────────
 
 function renderSubDaPagare(coach, agg) {
-  // Fonte 1: check-up con rate residue (venduto=true + nRate>rateIncassate)
-  const vendCU = venditeDaCheckup(coach).filter(v => inRange(v.dataVendita, agg.from, agg.to));
-  // Fonte 2: righe grezze dal foglio Vendite Regina (acconto solo, saldo non arrivato)
-  const vendRG = ((state.data && state.data.vendite) || [])
+  // Fonte unica: foglio Vendite Regina. "Da pagare" = clienti con Acconto spuntato
+  // ma Saldo non ancora arrivato (colonne J e K del foglio).
+  const rows = ((state.data && state.data.vendite) || [])
     .filter(v => v.dataVendita && v.importo > 0)
     .filter(v => !coach || v.coach === coach)
-    .filter(v => inRange(v.dataVendita, agg.from, agg.to));
-  // Dedupe (nome+cognome+importo) e combina
-  const seen = new Set();
-  const all = [];
-  for (const v of vendCU.concat(vendRG)) {
-    const k = `${(v.nome||'').toLowerCase()}|${(v.cognome||'').toLowerCase()}|${v.importo}`;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    all.push(v);
-  }
-  const rows = all.filter(v => (v.nRate > 0) && ((v.rateIncassate || 0) < v.nRate));
-  const totResiduo = rows.reduce((s, v) => s + (v.importo * ((v.nRate - (v.rateIncassate || 0)) / v.nRate)), 0);
+    .filter(v => inRange(v.dataVendita, agg.from, agg.to))
+    .filter(v => v.acconto && !v.saldo)
+    .sort((a, b) => (a.dataVendita || '').localeCompare(b.dataVendita || ''));
+  const totResiduo = rows.reduce((s, v) => s + v.importo, 0);
 
   return `
     <section>
       <div class="section-label">DA PAGARE</div>
-      <div class="section-title">Vendite con rate residue</div>
-      <div class="section-sub">${rows.length} clienti · residuo stimato ${fmtEur(totResiduo)}</div>
+      <div class="section-title">Acconto incassato, saldo mancante</div>
+      <div class="section-sub">${rows.length} clienti · da incassare ${fmtEur(totResiduo)}</div>
 
       <div class="prodotti-card" style="margin-top:12px">
-        ${rows.length === 0 ? emptyBox('Nessuna rata residua nel periodo') : `
+        ${rows.length === 0 ? emptyBox('Nessun saldo in sospeso nel periodo') : `
         <table class="data-table">
           <thead><tr>
-            <th>Data vendita</th><th>Cliente</th><th>Prodotto</th><th>Rate</th><th style="text-align:right">Residuo</th>
+            <th>Data vendita</th><th>Cliente</th><th>Prodotto</th><th>Modalità</th><th>Stato</th><th style="text-align:right">Da incassare</th>
           </tr></thead>
           <tbody>
-            ${rows.map(v => {
-              const res = v.importo * ((v.nRate - (v.rateIncassate || 0)) / v.nRate);
-              return `<tr>
-                <td>${fmtDate(v.dataVendita)}</td>
-                <td><b>${esc(v.nome)} ${esc(v.cognome)}</b></td>
-                <td>${esc(v.prodotto)}</td>
-                <td>${v.rateIncassate || 0}/${v.nRate}</td>
-                <td style="text-align:right;font-weight:600;color:#d97706">${fmtEur(res)}</td>
-              </tr>`;
-            }).join('')}
+            ${rows.map(v => `<tr>
+              <td>${fmtDate(v.dataVendita)}</td>
+              <td><b>${esc(v.nome)} ${esc(v.cognome)}</b></td>
+              <td>${esc(v.prodotto)}</td>
+              <td>${esc(v.modalita) || '—'}</td>
+              <td><span class="chip chip-yellow">Solo acconto</span></td>
+              <td style="text-align:right;font-weight:600;color:#d97706">${fmtEur(v.importo)}</td>
+            </tr>`).join('')}
           </tbody>
         </table>`}
       </div>

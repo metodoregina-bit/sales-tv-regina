@@ -184,7 +184,9 @@ function bool(v) {
 // F=Coach, G=Prodotto, H=Importo, I=Modalità, J=NRate, K=RateIncass, L=Data incasso,
 // M=Funnel, N=Note, O=Data prospect
 // Parse Vendite Regina. Il foglio ha header rows (DA/A/TOTALE/METODO/MCM/ACF/BA/PRODOTTO/COACH)
-// seguite da righe vendite reali con dataVendita + nome cliente + importo + rate.
+// seguite da righe vendite reali: A dataVendita, B nome, C cognome, D email, E tel,
+// F coach, G prodotto, H importo, I modalita, J Acconto (bool), K Saldo (bool),
+// L dataIncasso, M funnel, N note, O dataProspect.
 function parseVendite(g) {
   if (!g || !g.table || !g.table.rows) return [];
   const HEADER_NAMES = new Set(['DA','A','PRODOTTO','COACH','TOTALE','METODO','MCM','ACF','BA']);
@@ -198,8 +200,8 @@ function parseVendite(g) {
     prodotto: str(cell(r, 6)),
     importo: num(cell(r, 7)),
     modalita: str(cell(r, 8)),
-    nRate: num(cell(r, 9)),
-    rateIncassate: num(cell(r, 10)),
+    acconto: bool(cell(r, 9)),
+    saldo: bool(cell(r, 10)),
     dataIncasso: gvizDate(cell(r, 11)),
     funnel: str(cell(r, 12)),
     note: str(cell(r, 13)),
