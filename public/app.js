@@ -1367,6 +1367,25 @@ function renderSubStats(coach, agg) {
       </div>
     </section>
 
+    <!-- PERCORSO -->
+    <section>
+      <div class="section-label orange">Percorso</div>
+      <div class="section-title">Dal contatto alla vendita</div>
+      <div class="section-sub">Quanti passano da un passo al successivo</div>
+      ${renderPercorso(agg)}
+    </section>
+
+    <!-- NON CHIUSI / ACCONTI / VELOCITÀ / CHI PARLA / VOTO -->
+    <section>
+      <div class="section-label">Dettaglio</div>
+      <div class="section-title">Qualità del lavoro di ${coach}</div>
+      ${renderNonChiusiCard(coach)}
+      ${renderAccontiCard(coach)}
+      ${renderVelocitaCard(coach)}
+      ${renderChiParlaCard(coach)}
+      ${renderVotoCard(coach)}
+    </section>
+
     <section>
       <div class="section-label purple">Vendite recenti</div>
       <div class="section-title">Ultimi ${Math.min(vendite.length, 10)} chiusi</div>
