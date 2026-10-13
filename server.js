@@ -560,7 +560,17 @@ app.get('/api/tabs', async (req, res) => {
     // Snippet HTML per debug: trova 3 occorrenze di "gid"
     const idx = html.indexOf('gid');
     const snippet = idx >= 0 ? html.slice(Math.max(0, idx - 50), idx + 300) : null;
-    res.json({ ok: true, status: resp.status, count: found.length, tabs: found, htmlSize: html.length, snippet });
+    const debug = {
+      hasItemsPush: html.indexOf('items.push') !== -1,
+      hasItemsPushPat: html.indexOf('items.push({name:') !== -1,
+      firstItemsPushPos: html.indexOf('items.push'),
+      itemsPushContextRaw: null
+    };
+    if (debug.firstItemsPushPos >= 0) {
+      debug.itemsPushContextRaw = html.slice(debug.firstItemsPushPos, debug.firstItemsPushPos + 120);
+      debug.charCodes = Array.from(html.slice(debug.firstItemsPushPos, debug.firstItemsPushPos + 25)).map(c => c.charCodeAt(0));
+    }
+    res.json({ ok: true, status: resp.status, count: found.length, tabs: found, htmlSize: html.length, snippet, debug });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
