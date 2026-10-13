@@ -536,15 +536,26 @@ app.get('/api/tabs', async (req, res) => {
     const found = [];
     const seen = new Set();
     // Tanti pattern diversi per robustezza (Google cambia frequentemente il formato dell'htmlview)
-    // Google htmlview injetta: items.push({name: "TABNAME", pageUrl: "...gid=NNN", gid: NNN, ...})
-    const pat = /items\.push\(\{name:\s*"([^"]+)"[\s\S]{0,500}?,\s*gid:\s*(-?\d+)/g;
-    let m;
-    while ((m = pat.exec(html)) !== null) {
-      const name = m[1];
-      const gid = m[2];
-      if (seen.has(gid)) continue;
-      seen.add(gid);
-      found.push({ name, gid });
+    // Google htmlview injetta items.push({name: "...", pageUrl: "...gid=NNN", gid: NNN, index: ...})
+    // Parse manuale: trovo ogni "items.push({name:" e poi scorro per name e gid.
+    let idxP = 0;
+    while ((idxP = html.indexOf('items.push({name:', idxP)) !== -1) {
+      const nStart = html.indexOf('"', idxP) + 1;
+      const nEnd = html.indexOf('"', nStart);
+      if (nStart < 1 || nEnd < 0) { idxP += 20; continue; }
+      const name = html.slice(nStart, nEnd);
+      // Cerca ", gid:" dopo nEnd fino al prossimo "items.push" o 1000 char
+      const nextPush = html.indexOf('items.push', nEnd);
+      const limit = nextPush === -1 ? nEnd + 1500 : nextPush;
+      const gidMatch = html.slice(nEnd, limit).match(/,\s*gid:\s*(-?\d+)/);
+      if (gidMatch) {
+        const gid = gidMatch[1];
+        if (!seen.has(gid)) {
+          seen.add(gid);
+          found.push({ name, gid });
+        }
+      }
+      idxP = nEnd + 1;
     }
     // Snippet HTML per debug: trova 3 occorrenze di "gid"
     const idx = html.indexOf('gid');
