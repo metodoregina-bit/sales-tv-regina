@@ -791,7 +791,13 @@ function renderAndamento(coaches) {
       values: months.map(m => byMonth[m.key] || 0)
     };
   });
-  const maxV = Math.max(1, ...series.flatMap(s => s.values));
+  const maxV = Math.max(0, ...series.flatMap(s => s.values));
+  if (maxV === 0) {
+    return `<div class="prodotti-card" style="padding:48px;text-align:center;color:var(--text-muted)">
+      <div style="font-size:14px;margin-bottom:8px">Nessuna vendita registrata negli ultimi 12 mesi</div>
+      <div style="font-size:12px;opacity:0.7">Il grafico si popola quando il foglio Vendite Regina avrà vendite con data e importo</div>
+    </div>`;
+  }
   const W = 900, H = 260, PAD_L = 60, PAD_R = 20, PAD_T = 20, PAD_B = 44;
   const CW = W - PAD_L - PAD_R;
   const CH = H - PAD_T - PAD_B;
