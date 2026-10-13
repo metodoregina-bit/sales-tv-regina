@@ -12,7 +12,7 @@ const SHEET_ID = process.env.SHEET_ID || "1rMgXtcmbr-B5byLr9ZC3o54W2BUm8v8My8ZVE
 const SHEETS_WRITE_URL = process.env.SHEETS_WRITE_URL || "";
 
 // Tab names (regex-based lookup lato client-side non serve: qui i nomi esatti con emoji)
-const TAB_VENDITE = process.env.TAB_VENDITE || "💅Vendite Regina";
+const TAB_VENDITE = process.env.TAB_VENDITE || "💅 Vendite Regina";
 const TAB_QC = process.env.TAB_QC || "💅Check-up QC prenotati";
 const TAB_QUIZ = process.env.TAB_QUIZ || "Check-up Quiz prenotati";
 const TAB_SALES = process.env.TAB_SALES || "Check-up Sales prenotati";
