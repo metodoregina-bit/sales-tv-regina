@@ -122,7 +122,17 @@ async function fetchData() {
   if (!r.ok) { toast('Errore caricamento dati', 'error'); throw new Error('fetch fail'); }
   const d = await r.json();
   state.data = d;
+  updateSubtitle();
   toast(`Dati aggiornati · ${d.vendite.length} vendite · ${d.checkup.length} check-up`);
+}
+
+function updateSubtitle() {
+  const el = document.getElementById('pageSubtitle');
+  if (!el || !state.data || !state.data.updatedAt) return;
+  const d = new Date(state.data.updatedAt);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  el.textContent = `Foglio letto alle ${hh}:${mm}`;
 }
 
 // ─────────────── DATE ───────────────
@@ -508,6 +518,7 @@ function renderHome() {
         <span><span class="dot" style="background:#2dd4bf"></span>Incassato</span>
         <span><span class="dot" style="background:#f97316"></span>Contatti</span>
         <span><span class="dot" style="background:#a855f7"></span>Check-up</span>
+        <span><span class="dot" style="background:#ec4899"></span>Non chiusi</span>
       </div>
 
       <div class="team-grid">

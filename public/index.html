@@ -52,8 +52,13 @@
 
     <!-- HEADER -->
     <header class="page-header">
-      <h1 class="page-h1">Sales TV</h1>
+      <div class="page-title">
+        <h1 class="page-h1">Sales TV</h1>
+        <div class="page-subtitle" id="pageSubtitle"></div>
+      </div>
       <div class="page-actions">
+        <button id="undoBtn" class="btn btn-ghost btn-sm" title="Annulla" disabled>↶ ANNULLA</button>
+        <button id="redoBtn" class="btn btn-ghost btn-sm" title="Ripeti" disabled>↷ RIPETI</button>
         <button id="refreshBtn" class="btn btn-primary">🔄 AGGIORNA</button>
         <button id="logoutBtn" class="btn btn-ghost" title="Logout">⋯</button>
       </div>
