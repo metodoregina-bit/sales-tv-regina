@@ -1305,24 +1305,46 @@ function classifyCheckup(c, agg) {
   return buckets;
 }
 
+// Il badge rosso sui tab di Sofia è un PROMEMORIA, non un conteggio totale.
+// Compare solo per cose non gestite o con data scaduta. I tab di statistica
+// finale (contatti/checkup/vendite/persi/stats/calendario/registrazioni) non
+// mostrano badge.
 function subViewCounts(coach, agg) {
   const data = filterByCoachAndPeriod(coach, agg);
-  const counts = { stats: null, calendario: null, registrazioni: null };
-  const keys = ['contatti','da-chiamare','no-risp','sospesi','checkup','follow-up','da-risentire','persi'];
-  keys.forEach(k => counts[k] = 0);
+  // Tutti i tab senza badge di default (null = nessun pallino)
+  const counts = {
+    stats: null, calendario: null, contatti: null, checkup: null,
+    vendite: null, persi: null, registrazioni: null,
+    'da-chiamare': 0, 'no-risp': 0, sospesi: 0,
+    'follow-up': 0, 'da-risentire': 0, 'da-pagare': 0
+  };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const SCADENZA_DAYS = 3; // oltre N giorni dalla data prospect senza setting = scaduto
+
   data.forEach(c => {
-    classifyCheckup(c, agg).forEach(b => {
-      if (counts[b] != null) counts[b]++;
-    });
+    const buckets = classifyCheckup(c, agg);
+    // Da chiamare: solo se la data prospect è passata di oltre N giorni
+    if (buckets.indexOf('da-chiamare') >= 0 && c.dataProspect) {
+      const d = new Date(c.dataProspect);
+      const diffDays = (today - d) / (1000 * 60 * 60 * 24);
+      if (diffDays >= SCADENZA_DAYS) counts['da-chiamare']++;
+    }
+    // No risp / Sospesi / Follow-up / Da risentire: sempre promemoria (azione pending)
+    if (buckets.indexOf('no-risp') >= 0) counts['no-risp']++;
+    if (buckets.indexOf('sospesi') >= 0) counts['sospesi']++;
+    if (buckets.indexOf('follow-up') >= 0) counts['follow-up']++;
+    if (buckets.indexOf('da-risentire') >= 0) counts['da-risentire']++;
   });
-  const vendite = venditeDaCheckup(coach).filter(v => inRange(v.dataVendita, agg.from, agg.to));
-  counts.vendite = vendite.length;
+
   // Da pagare = righe Vendite Regina con acconto spuntato ma saldo non ancora pagato
   const vendRG = ((state.data && state.data.vendite) || [])
     .filter(v => v.dataVendita && v.importo > 0)
     .filter(v => !coach || v.coach === coach)
     .filter(v => inRange(v.dataVendita, agg.from, agg.to));
   counts['da-pagare'] = vendRG.filter(v => v.acconto && !v.saldo).length;
+
   return counts;
 }
 
