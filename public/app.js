@@ -320,7 +320,9 @@ function aggregateFor(coach) {
     nVendite = stv.vendite || 0;
     rop = stv.rop || 0;
     ropTarget = stv.obiettivoRop || 400;
-    roc = stv.chiamati ? Math.round(fatt / stv.chiamati) : 0;
+    // ROC usa il conteggio chiamati più alto fra foglio e raw (vedi nota chiamatiCount)
+    const chiamatiReali = Math.max(chiamati.length, stv.chiamati || 0);
+    roc = chiamatiReali ? Math.round(fatt / chiamatiReali) : 0;
     obiettivo = stv.obiettivo || OBIETTIVO_COACH;
     ideal = stv.ideal || 0;
   } else {
@@ -348,7 +350,10 @@ function aggregateFor(coach) {
     prospect,
     vendite: nVendite,
     checkup: nCheckup,
-    chiamatiCount: stv ? (stv.chiamati || 0) : chiamati.length,
+    // CHIAMATI: calcolo sempre dai check-up raw (setting=TRUE + prospect in periodo).
+    // La formula del foglio Sales TV TOTALE referenzia 'Check-up QC prenotati' senza
+    // l'emoji attuale 💅, quindi non trova il tab e restituisce valori sballati.
+    chiamatiCount: Math.max(chiamati.length, stv ? (stv.chiamati || 0) : 0),
     ticketMedio: nVendite ? fatt / nVendite : 0,
     rop,
     ropTarget,
