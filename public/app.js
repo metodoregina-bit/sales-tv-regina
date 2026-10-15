@@ -1958,7 +1958,24 @@ $('#dateTo').addEventListener('change', async (e) => {
   await applyPeriodToSheet(from, to);
 });
 
-$('#refreshBtn').addEventListener('click', async () => { await fetchData(); render(); });
+$('#refreshBtn').addEventListener('click', async () => {
+  const btn = $('#refreshBtn');
+  if (btn.disabled) return;
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Aggiornando…';
+  try {
+    await fetchData();
+    render();
+    btn.innerHTML = '✓ Aggiornato';
+    toast('Dati aggiornati', 'ok');
+    setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 1200);
+  } catch (e) {
+    btn.innerHTML = '⚠ Errore';
+    toast('Errore: ' + e.message, 'error');
+    setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 2000);
+  }
+});
 $('#logoutBtn').addEventListener('click', doLogout);
 
 // ─────────────── TOAST ───────────────
