@@ -1512,7 +1512,7 @@ function subListData(coach, agg, kind) {
     .sort((a, b) => {
       const dA = kind === 'contatti' || kind === 'da-chiamare' ? (a.dataProspect || '') : (a.dataCheckup || a.dataProspect || '');
       const dB = kind === 'contatti' || kind === 'da-chiamare' ? (b.dataProspect || '') : (b.dataCheckup || b.dataProspect || '');
-      return dB.localeCompare(dA);
+      return dA.localeCompare(dB);
     });
 }
 
