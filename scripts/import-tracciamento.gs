@@ -305,6 +305,16 @@ function sortVenditeReginaByData() {
   Logger.log('Ordinato per Data vendita ASC');
 }
 
+// Ordina Check-up QC prenotati per Data prospect (col A) ASC — dal più vecchio al più recente
+function sortCheckupQCByDataProspect() {
+  const qc = findSheet(SpreadsheetApp.openById(SALES_TV_SHEET_ID), /Check-up QC prenotati/i);
+  const last = qc.getLastRow();
+  if (last < 3) return;
+  // Dati da riga 2 (riga 1 = header). Ordina per col 1 (Data prospect) ASC.
+  qc.getRange(2, 1, last - 1, qc.getLastColumn()).sort({ column: 1, ascending: true });
+  Logger.log('Check-up QC ordinato per Data prospect ASC (vecchi in alto)');
+}
+
 // ─────────────────────────────────────────────────────────────
 // 5) SHIFT UTILITIES
 // ─────────────────────────────────────────────────────────────
