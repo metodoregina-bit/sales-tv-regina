@@ -92,9 +92,33 @@ app.get('/api/me', (req, res) => {
 
 // ────────────────── GVIZ FETCH ──────────────────
 
+// GID noti dei tab (fallback se gviz by name non trova per via di emoji nel nome)
+const TAB_GIDS = {
+  "💅 Check-up QC prenotati": "648253972",
+  "💅Check-up QC prenotati": "648253972",
+  "Check-up QC prenotati": "648253972",
+  "💅 Vendite Regina": "212620080",
+  "💅Vendite Regina": "212620080",
+  "Vendite Regina": "212620080",
+  "Check-up Sales prenotati": "574932983",
+  "Check-up Quiz prenotati": "52592673",
+  "Check-up Assistenza prenotati": "1449459429",
+  "Check-up Manuale prenotati": "577291052",
+  "Sales TV TOTALE": "859031529",
+  "Sales TV Queen Challenge": "125666609",
+  "Sales TV Quiz": "257535665",
+  "Sales TV Sales": "1816195453",
+  "Sales TV Assistenza": "1323467720",
+  "Sales TV Manuale": "1650713999"
+};
+
 function fetchGviz(sheetName) {
   return new Promise((resolve, reject) => {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+    // Prefer GID per tab con emoji nel nome (gviz by name fallisce con emoji URL-encoded).
+    const gid = TAB_GIDS[sheetName];
+    const url = gid
+      ? `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}`
+      : `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
     https.get(url, (r) => {
       if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location) {
         return https.get(r.headers.location, (r2) => collect(r2, resolve, reject)).on('error', reject);
